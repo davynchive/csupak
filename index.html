@@ -3,45 +3,147 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
     <title>CSUPAK - Login</title>
+
     <link rel="stylesheet" href="src/output.css">
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
-<body>
 
-    <main class="login-container">
-        <section class="login-card">
-            <h1 class="text-4xl font-bold text-blue-600">CSUPAK</h1>
-            <p class="subtitle">Student Violation Tracking System</p>
+<body class="min-h-screen bg-[#F3F5F3] flex items-center justify-center p-6">
 
-            <form id="loginForm">
-                <div class="form-group">
-                    <label for="email">Email</label>
-                    <input
-                        type="email"
-                        id="email"
-                        placeholder="Enter your email"
-                        required
-                    >
+    <main class="w-full max-w-5xl">
+
+        <div class="grid overflow-hidden rounded-2xl bg-white shadow-xl md:grid-cols-2">
+
+            <!-- Branding Section -->
+            <section class="relative bg-[#006B21] px-10 py-12 text-white md:px-12 md:py-16">
+
+                <div class="absolute right-0 top-0 h-32 w-32 rounded-full bg-[#F5C400] opacity-10"></div>
+                <div class="absolute bottom-0 left-0 h-40 w-40 rounded-full bg-[#F5C400] opacity-10"></div>
+
+                <div class="relative flex h-full flex-col justify-between">
+
+                    <div>
+                        <div class="mb-8 flex items-center gap-3">
+                            <div class="h-10 w-1 rounded-full bg-[#F5C400]"></div>
+
+                            <div>
+                                <h1 class="text-3xl font-bold tracking-tight">
+                                    CSUPAK
+                                </h1>
+
+                                <p class="text-sm text-green-100">
+                                    Student Violation Tracking System
+                                </p>
+                            </div>
+                        </div>
+
+                        <h2 class="max-w-sm text-3xl font-bold leading-tight md:text-4xl">
+                            Student violation records, organized in one system.
+                        </h2>
+
+                        <p class="mt-5 max-w-md text-sm leading-6 text-green-100">
+                            A centralized system for recording, tracking, and viewing
+                            student violation information.
+                        </p>
+                    </div>
+
+                    <div class="mt-12">
+                        <div class="mb-3 h-1 w-12 rounded-full bg-[#F5C400]"></div>
+
+                        <p class="text-xs text-green-100">
+                            Caraga State University
+                        </p>
+                    </div>
+
                 </div>
 
-                <div class="form-group">
-                    <label for="password">Password</label>
-                    <input
-                        type="password"
-                        id="password"
-                        placeholder="Enter your password"
-                        required
-                    >
+            </section>
+
+            <!-- Login Section -->
+            <section class="px-8 py-10 md:px-12 md:py-16">
+
+                <div class="mx-auto max-w-md">
+
+                    <div class="mb-8">
+                        <h2 class="mt-2 text-3xl font-bold text-gray-800">
+                            Welcome back
+                        </h2>
+
+                        <p class="mt-2 text-sm text-gray-500">
+                            Sign in to access the CSUPAK system.
+                        </p>
+                    </div>
+
+                    <form id="loginForm" class="space-y-5">
+
+                        <div>
+                            <label
+                                for="email"
+                                class="mb-2 block text-sm font-semibold text-gray-700"
+                            >
+                                Email
+                            </label>
+
+                            <input
+                                type="email"
+                                id="email"
+                                required
+                                placeholder="Enter your email"
+                                class="w-full rounded-lg border border-gray-300 bg-gray-50 px-4 py-3 text-gray-800 outline-none transition focus:border-[#006B21] focus:bg-white focus:ring-2 focus:ring-green-100"
+                            >
+                        </div>
+
+                        <div>
+                            <label
+                                for="password"
+                                class="mb-2 block text-sm font-semibold text-gray-700"
+                            >
+                                Password
+                            </label>
+
+                            <input
+                                type="password"
+                                id="password"
+                                required
+                                placeholder="Enter your password"
+                                class="w-full rounded-lg border border-gray-300 bg-gray-50 px-4 py-3 text-gray-800 outline-none transition focus:border-[#006B21] focus:bg-white focus:ring-2 focus:ring-green-100"
+                            >
+                        </div>
+
+                        <button
+                            type="submit"
+                            class="w-full rounded-lg bg-[#006B21] px-4 py-3.5 font-semibold text-white shadow-sm transition hover:bg-[#005619] hover:shadow-md"
+                        >
+                            Log In
+                        </button>
+
+                        <p
+                            id="loginMessage"
+                            class="min-h-5 text-center text-sm text-gray-600"
+                        ></p>
+
+                    </form>
+
+                    <div class="mt-8 border-t border-gray-200 pt-5">
+                        <p class="text-center text-xs text-gray-400">
+                            Authorized personnel only
+                        </p>
+                    </div>
+
                 </div>
 
-                <button type="submit">Log In</button>
+            </section>
 
-                <p id="loginMessage"></p>
-            </form>
-        </section>
+        </div>
+
     </main>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="script.js"></script>
+    <script src="js/supabase.js"></script>
+    <script src="js/login.js"></script>
+
 </body>
 </html>
