@@ -154,6 +154,13 @@ let allViolations = [];
 
 let monthlyViolations = [];
 
+const VIOLATION_BATCH_SIZE = 500;
+let violationsComplete = false;
+let violationsLoadError = null;
+let violationsErrorMessage = null;
+
+if (generateReportButton) generateReportButton.disabled = true;
+
 
 /* =====================================================
    LOAD PROFILE
@@ -500,20 +507,22 @@ async function loadActiveSemester() {
 ===================================================== */
 
 async function loadViolations() {
+    violationsComplete = false;
+    violationsLoadError = null;
+    allViolations = [];
+    monthlyViolations = [];
+    if (generateReportButton) generateReportButton.disabled = true;
+    if (violationsErrorMessage) violationsErrorMessage.hidden = true;
 
-    console.log(
-        "6. loadViolations() started"
-    );
-    
-    if (!activeSemester) {
-        console.log("Dashboard stopped: active semester failed.");
-        return;
-    }
-
-
-    const result =
-        await supabaseClient
-            .from("violations")
+    // Publish only after every batch succeeds; never render a partial report.
+    const retrievedViolations = [];
+    try {
+        if (!activeSemester) {
+            throw new Error("No active semester is configured.");
+        }
+        for (let offset = 0; ; offset += VIOLATION_BATCH_SIZE) {
+            const result = await supabaseClient
+                .from("violations")
             .select(
                 `
                 id,
@@ -543,41 +552,31 @@ async function loadViolations() {
                 )
                 `
             )
-            .eq(
-                "semester_id",
-                activeSemester.id
-            )
-            .order(
-                "date_time",
-                {
-                    ascending: false
-                }
-            );
+                .eq("semester_id", activeSemester.id)
+                .order("date_time", { ascending: false })
+                .order("id", { ascending: false })
+                .range(offset, offset + VIOLATION_BATCH_SIZE - 1);
 
-
-    if (result.error) {
-
-        console.error(
-            "Unable to load violations:",
-            result.error
-        );
-
-
-        allViolations = [];
-
-
+            if (result.error) throw result.error;
+            if (!Array.isArray(result.data)) {
+                throw new Error("The violations query returned invalid data.");
+            }
+            retrievedViolations.push(...result.data);
+            if (result.data.length < VIOLATION_BATCH_SIZE) break;
+        }
+        allViolations = retrievedViolations;
+        violationsComplete = true;
+        if (generateReportButton) generateReportButton.disabled = false;
         renderDashboard();
-
-
-        return;
+    } catch (error) {
+        console.error("Unable to load complete violation data:", error);
+        violationsComplete = false;
+        violationsLoadError = "Unable to load complete violation data. Dashboard totals and reports are unavailable. Reload the page to try again.";
+        allViolations = [];
+        monthlyViolations = [];
+        if (generateReportButton) generateReportButton.disabled = true;
+        renderDashboard();
     }
-
-
-    allViolations =
-        result.data || [];
-
-
-    renderDashboard();
 }
 
 
@@ -586,6 +585,24 @@ async function loadViolations() {
 ===================================================== */
 
 function renderDashboard() {
+    if (!violationsComplete) {
+        if (totalViolations) totalViolations.textContent = "Unavailable";
+        if (violationTypeCards) violationTypeCards.innerHTML = "";
+        if (collegeCards) collegeCards.innerHTML = "";
+        if (recentRecords) recentRecords.innerHTML = "";
+        if (violationsLoadError) {
+            if (!violationsErrorMessage) {
+                violationsErrorMessage = document.createElement("div");
+                violationsErrorMessage.className = "mt-4 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700";
+                violationsErrorMessage.setAttribute("role", "alert");
+                welcomeMessage.insertAdjacentElement("afterend", violationsErrorMessage);
+            }
+            violationsErrorMessage.textContent = violationsLoadError;
+            violationsErrorMessage.hidden = false;
+        }
+        return;
+    }
+
 
     updateMonthTitle();
 
@@ -1738,6 +1755,11 @@ function generateReport() {
         return;
     }
 
+
+    if (!violationsComplete) {
+        alert("Complete violation data is unavailable. Wait for loading to finish or reload the page before generating a report.");
+        return;
+    }
 
     const monthOption =
         reportMonth.options[
