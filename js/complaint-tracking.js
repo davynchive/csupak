@@ -88,6 +88,18 @@ let currentPasskey = "";
 let allComplaints = [];
 
 let selectedComplaintId = null;
+const COMPLAINT_BATCH_SIZE = 500;
+const COMPLAINT_PAGE_SIZE = 25;
+let complaintsLoading = false;
+let complaintsComplete = false;
+let complaintsLoadError = null;
+let complaintRequestToken = 0;
+let currentComplaintPage = 1;
+
+function restoreUnlockControl() {
+    unlockButton.disabled = false;
+    unlockButton.textContent = "Unlock Complaint Tracking";
+}
 
 
 async function loadProfile() {
@@ -182,95 +194,102 @@ async function loadProfile() {
 }
 
 
-async function unlockComplaints(
-    event
-) {
-
+async function unlockComplaints(event) {
     event.preventDefault();
-
-
-    const passkey =
-        passkeyInput.value.trim();
-
-
-    if (!passkey) {
-        return;
-    }
-
-
-    unlockButton.disabled =
-        true;
-
-    unlockButton.textContent =
-        "Checking...";
-
-
-    const result =
-        await supabaseClient.rpc(
-            "get_complaints_with_passkey",
-            {
-                entered_passkey:
-                    passkey
+    if (complaintsLoading) return;
+    const passkey = passkeyInput.value.trim();
+    if (!passkey) return;
+    const token = ++complaintRequestToken;
+    const isCurrent = () => token === complaintRequestToken;
+    complaintsLoading = true;
+    complaintsComplete = false;
+    complaintsLoadError = null;
+    allComplaints = [];
+    currentPasskey = "";
+    currentComplaintPage = 1;
+    complaintRecords.innerHTML = "";
+    trackingContent.classList.add("hidden");
+    passkeySection.classList.remove("hidden");
+    passkeyMessage.classList.add("hidden");
+    unlockButton.disabled = true;
+    unlockButton.textContent = "Loading...";
+    const records = [];
+    const ids = new Set();
+    let expectedTotal = null;
+    let offset = 0;
+    try {
+        do {
+            if (!isCurrent()) return;
+            const result = await supabaseClient.rpc("get_complaints_with_passkey",
+                { entered_passkey: passkey }, { count: "exact" })
+                .order("date_reported", { ascending: false })
+                .order("created_at", { ascending: false, nullsFirst: true })
+                .order("id", { ascending: false })
+                .range(offset, offset + COMPLAINT_BATCH_SIZE - 1);
+            if (!isCurrent()) return;
+            if (result.error) throw result.error;
+            if (!Array.isArray(result.data) || !Number.isSafeInteger(result.count) ||
+                result.count < 0 || result.data.length > COMPLAINT_BATCH_SIZE) {
+                throw new Error("Invalid complaint batch returned.");
             }
-        );
-
-
-    unlockButton.disabled =
-        false;
-
-    unlockButton.textContent =
-        "Unlock Complaint Tracking";
-
-
-    if (result.error) {
-
-        console.error(
-            result.error
-        );
-
-
-        passkeyMessage.textContent =
-            "Invalid passkey or unauthorized access.";
-
-        passkeyMessage.classList.remove(
-            "hidden"
-        );
-
-
-        return;
+            if (expectedTotal === null) expectedTotal = result.count;
+            if (result.count !== expectedTotal) throw new Error("Complaint count changed while loading.");
+            if (!result.data.length && offset < expectedTotal) throw new Error("Premature empty complaint batch.");
+            for (const record of result.data) {
+                if (!record || typeof record !== "object" || Array.isArray(record) ||
+                    !["string", "number"].includes(typeof record.id) || !String(record.id).trim() ||
+                    (typeof record.id === "number" && !Number.isFinite(record.id))) {
+                    throw new Error("Invalid complaint record returned.");
+                }
+                const id = String(record.id);
+                if (ids.has(id)) throw new Error("Duplicate complaint ID returned.");
+                ids.add(id);
+                records.push(record);
+            }
+            offset += result.data.length;
+        } while (offset < expectedTotal);
+        if (records.length !== expectedTotal || ids.size !== expectedTotal) {
+            throw new Error("Incomplete complaint dataset returned.");
+        }
+        allComplaints = records;
+        currentPasskey = passkey;
+        complaintsComplete = true;
+        passkeyInput.value = "";
+        passkeySection.classList.add("hidden");
+        trackingContent.classList.remove("hidden");
+    } catch (error) {
+        if (!isCurrent()) return;
+        // Do not log the RPC response, which may contain sensitive details.
+        allComplaints = [];
+        currentPasskey = "";
+        complaintsComplete = false;
+        complaintsLoadError = "Unable to load complete complaint records. Check your passkey and try unlocking again.";
+        trackingContent.classList.add("hidden");
+        passkeySection.classList.remove("hidden");
+        complaintRecords.innerHTML = "";
+        passkeyMessage.textContent = complaintsLoadError;
+        passkeyMessage.classList.remove("hidden");
+    } finally {
+        if (isCurrent()) {
+            complaintsLoading = false;
+            restoreUnlockControl();
+            renderComplaints();
+        }
     }
-
-
-    currentPasskey =
-        passkey;
-
-    allComplaints =
-        result.data || [];
-
-
-    passkeyInput.value =
-        "";
-
-    passkeyMessage.classList.add(
-        "hidden"
-    );
-
-
-    passkeySection.classList.add(
-        "hidden"
-    );
-
-
-    trackingContent.classList.remove(
-        "hidden"
-    );
-
-
-    renderComplaints();
 }
 
 
 function lockComplaints() {
+    complaintRequestToken++;
+    complaintsLoading = false;
+    complaintsComplete = false;
+    complaintsLoadError = null;
+    currentComplaintPage = 1;
+    restoreUnlockControl();
+    closeCallSlip();
+    passkeyInput.value = "";
+    passkeyMessage.textContent = "";
+    passkeyMessage.classList.add("hidden");
 
     currentPasskey =
         "";
@@ -351,9 +370,16 @@ function getFilteredComplaints() {
 
 
 function renderComplaints() {
+    if (complaintsLoading || !complaintsComplete || !currentPasskey) {
+        complaintRecords.innerHTML = "";
+        return;
+    }
 
     const records =
         getFilteredComplaints();
+
+    const pageCount = Math.max(1, Math.ceil(records.length / COMPLAINT_PAGE_SIZE));
+    currentComplaintPage = Math.min(Math.max(1, currentComplaintPage), pageCount);
 
 
     complaintRecords.innerHTML =
@@ -375,7 +401,7 @@ function renderComplaints() {
     }
 
 
-    records.forEach(
+    records.slice((currentComplaintPage - 1) * COMPLAINT_PAGE_SIZE, currentComplaintPage * COMPLAINT_PAGE_SIZE).forEach(
         function (complaint) {
 
             complaintRecords.appendChild(
@@ -385,6 +411,41 @@ function renderComplaints() {
             );
         }
     );
+    renderComplaintPagination(records.length, pageCount);
+}
+
+
+function resetComplaintPage() {
+    currentComplaintPage = 1;
+    renderComplaints();
+}
+
+function renderComplaintPagination(total, pageCount) {
+    const controls = document.createElement("div");
+    controls.className = "mt-4 flex flex-wrap items-center justify-between gap-3";
+    controls.setAttribute("aria-label", "Complaint pagination");
+    const label = document.createElement("p");
+    label.className = "text-sm text-gray-600";
+    label.textContent = "Showing " + ((currentComplaintPage - 1) * COMPLAINT_PAGE_SIZE + 1) + "-" +
+        Math.min(currentComplaintPage * COMPLAINT_PAGE_SIZE, total) + " of " + total +
+        " complaints | Page " + currentComplaintPage + " of " + pageCount;
+    controls.appendChild(label);
+    const buttons = document.createElement("div");
+    buttons.className = "flex gap-2";
+    [["Previous", -1], ["Next", 1]].forEach(function ([text, direction]) {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.textContent = text;
+        button.className = "rounded-lg border border-gray-300 px-4 py-2 text-sm disabled:opacity-50";
+        button.disabled = direction < 0 ? currentComplaintPage === 1 : currentComplaintPage === pageCount;
+        button.addEventListener("click", function () {
+            currentComplaintPage += direction;
+            renderComplaints();
+        });
+        buttons.appendChild(button);
+    });
+    controls.appendChild(buttons);
+    complaintRecords.appendChild(controls);
 }
 
 
@@ -974,13 +1035,13 @@ lockButton.addEventListener(
 
 searchInput.addEventListener(
     "input",
-    renderComplaints
+    resetComplaintPage
 );
 
 
 statusFilter.addEventListener(
     "change",
-    renderComplaints
+    resetComplaintPage
 );
 
 
