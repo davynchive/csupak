@@ -121,6 +121,12 @@ const rescheduleRemarks =
 let currentProfile = null;
 
 let allCallSlips = [];
+const CALL_SLIP_BATCH_SIZE = 500;
+const CALL_SLIP_GROUP_PAGE_SIZE = 10;
+let currentCallSlipPage = 1;
+let callSlipsLoading = false;
+let callSlipsComplete = false;
+let callSlipsLoadError = null;
 
 let selectedCallSlipId = null;
 
@@ -325,60 +331,65 @@ async function loadProfile() {
 ===================================================== */
 
 async function loadCallSlips() {
-
-    callSlipRecords.innerHTML =
-        "<div class=\"rounded-xl bg-gray-50 px-4 py-10 text-center\">" +
-            "<p class=\"text-sm text-gray-500\">" +
-                "Loading Call Slips..." +
-            "</p>" +
-        "</div>";
-
-
-    const result =
-        await supabaseClient
-            .from("call_slips")
-            .select("*")
-            .order(
-                "complaint_id",
-                {
-                    ascending: false
-                }
-            )
-            .order(
-                "call_number",
-                {
-                    ascending: true
-                }
-            );
-
-
-    if (result.error) {
-
-        console.error(
-            "Unable to load Call Slips:",
-            result.error
-        );
-
-
-        callSlipRecords.innerHTML =
-            "<div class=\"rounded-xl bg-red-50 px-4 py-10 text-center\">" +
-                "<p class=\"text-sm text-red-600\">" +
-                    "Unable to load Call Slip records." +
-                "</p>" +
-            "</div>";
-
-
-        return;
-    }
-
-
-    allCallSlips =
-        result.data || [];
-
-
-    updateSummary();
-
+    if (callSlipsLoading) return;
+    callSlipsLoading = true;
+    callSlipsComplete = false;
+    callSlipsLoadError = null;
+    allCallSlips = [];
+    currentCallSlipPage = 1;
+    refreshButton.disabled = true;
     renderCallSlips();
+    const records = [];
+    const ids = new Set();
+    let expectedTotal = null;
+    let offset = 0;
+    try {
+        do {
+            const result = await supabaseClient
+                .from("call_slips")
+                .select("*", { count: "exact" })
+                .order("complaint_id", { ascending: false })
+                .order("call_number", { ascending: true })
+                .order("id", { ascending: true })
+                .range(offset, offset + CALL_SLIP_BATCH_SIZE - 1);
+            if (result.error) throw result.error;
+            if (!Array.isArray(result.data) || !Number.isSafeInteger(result.count) ||
+                result.count < 0 || result.data.length > CALL_SLIP_BATCH_SIZE) {
+                throw new Error("Invalid call-slip batch returned.");
+            }
+            if (expectedTotal === null) expectedTotal = result.count;
+            if (result.count !== expectedTotal) throw new Error("Call-slip count changed while loading.");
+            if (!result.data.length && offset < expectedTotal) {
+                throw new Error("Call-slip batch ended before all records were retrieved.");
+            }
+            for (const record of result.data) {
+                if (!record || typeof record !== "object" || Array.isArray(record) ||
+                    !["string", "number"].includes(typeof record.id) || !String(record.id).trim() ||
+                    (typeof record.id === "number" && !Number.isFinite(record.id))) {
+                    throw new Error("Invalid call-slip record returned.");
+                }
+                const id = String(record.id);
+                if (ids.has(id)) throw new Error("Duplicate call-slip record returned.");
+                ids.add(id);
+                records.push(record);
+            }
+            offset += result.data.length;
+        } while (offset < expectedTotal);
+        if (records.length !== expectedTotal || ids.size !== expectedTotal) {
+            throw new Error("Incomplete call-slip dataset returned.");
+        }
+        allCallSlips = records;
+        callSlipsComplete = true;
+    } catch (error) {
+        console.error("Unable to load complete Call Slips:", error);
+        allCallSlips = [];
+        callSlipsComplete = false;
+        callSlipsLoadError = "Unable to load complete Call Slip records. Use Refresh to try again.";
+    } finally {
+        callSlipsLoading = false;
+        refreshButton.disabled = false;
+        renderCallSlips();
+    }
 }
 
 
@@ -386,14 +397,20 @@ async function loadCallSlips() {
    SUMMARY
 ===================================================== */
 
-function updateSummary() {
+function updateSummary(records = getFilteredCallSlips()) {
+    if (callSlipsLoading || !callSlipsComplete) {
+        [totalCalls, showCount, rescheduleCount, noShowCount].forEach(function (element) {
+            element.textContent = "Unavailable";
+        });
+        return;
+    }
 
     totalCalls.textContent =
-        allCallSlips.length;
+        records.length;
 
 
     const shows =
-        allCallSlips.filter(
+        records.filter(
             function (item) {
 
                 return (
@@ -405,7 +422,7 @@ function updateSummary() {
 
 
     const reschedules =
-        allCallSlips.filter(
+        records.filter(
             function (item) {
 
                 return (
@@ -417,7 +434,7 @@ function updateSummary() {
 
 
     const noShows =
-        allCallSlips.filter(
+        records.filter(
             function (item) {
 
                 return (
@@ -602,9 +619,24 @@ function groupByComplaint(
 ===================================================== */
 
 function renderCallSlips() {
+    if (callSlipsLoading || !callSlipsComplete) {
+        updateSummary();
+        callSlipRecords.innerHTML = "";
+        const message = document.createElement("p");
+        message.className = callSlipsLoadError
+            ? "rounded-xl bg-red-50 px-4 py-10 text-center text-sm text-red-600"
+            : "rounded-xl bg-gray-50 px-4 py-10 text-center text-sm text-gray-500";
+        message.textContent = callSlipsLoadError || (callSlipsLoading
+            ? "Loading Call Slips..." : "Call Slip records are not loaded.");
+        if (callSlipsLoadError) message.setAttribute("role", "alert");
+        callSlipRecords.appendChild(message);
+        return;
+    }
 
     const records =
         getFilteredCallSlips();
+
+    updateSummary(records);
 
 
     callSlipRecords.innerHTML =
@@ -614,6 +646,7 @@ function renderCallSlips() {
     if (
         records.length === 0
     ) {
+        currentCallSlipPage = 1;
 
         callSlipRecords.innerHTML =
             "<div class=\"rounded-xl bg-gray-50 px-4 py-10 text-center\">" +
@@ -657,7 +690,12 @@ function renderCallSlips() {
         "space-y-5";
 
 
-    complaintIds.forEach(
+    const pageCount = Math.max(1, Math.ceil(complaintIds.length / CALL_SLIP_GROUP_PAGE_SIZE));
+    currentCallSlipPage = Math.min(Math.max(1, currentCallSlipPage), pageCount);
+    const start = (currentCallSlipPage - 1) * CALL_SLIP_GROUP_PAGE_SIZE;
+    const pageComplaintIds = complaintIds.slice(start, start + CALL_SLIP_GROUP_PAGE_SIZE);
+
+    pageComplaintIds.forEach(
         function (complaintId) {
 
             const group =
@@ -679,6 +717,41 @@ function renderCallSlips() {
     callSlipRecords.appendChild(
         wrapper
     );
+    renderCallSlipPagination(complaintIds.length, pageCount, start);
+}
+
+
+function resetCallSlipPage() {
+    currentCallSlipPage = 1;
+    renderCallSlips();
+}
+
+function renderCallSlipPagination(totalGroups, pageCount, start) {
+    const controls = document.createElement("div");
+    controls.className = "mt-4 flex flex-wrap items-center justify-between gap-3";
+    controls.setAttribute("aria-label", "Call Slip pagination");
+    const label = document.createElement("p");
+    label.className = "text-sm text-gray-600";
+    label.textContent = "Showing " + (start + 1) + "-" +
+        Math.min(start + CALL_SLIP_GROUP_PAGE_SIZE, totalGroups) +
+        " of " + totalGroups + " complaints | Page " + currentCallSlipPage + " of " + pageCount;
+    controls.appendChild(label);
+    const buttons = document.createElement("div");
+    buttons.className = "flex gap-2";
+    [["Previous", -1], ["Next", 1]].forEach(function ([text, direction]) {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.textContent = text;
+        button.className = "rounded-lg border border-gray-300 px-4 py-2 text-sm disabled:opacity-50";
+        button.disabled = direction < 0 ? currentCallSlipPage === 1 : currentCallSlipPage === pageCount;
+        button.addEventListener("click", function () {
+            currentCallSlipPage += direction;
+            renderCallSlips();
+        });
+        buttons.appendChild(button);
+    });
+    controls.appendChild(buttons);
+    callSlipRecords.appendChild(controls);
 }
 
 
@@ -1549,19 +1622,19 @@ function formatTime(
 
 searchInput.addEventListener(
     "input",
-    renderCallSlips
+    resetCallSlipPage
 );
 
 
 statusFilter.addEventListener(
     "change",
-    renderCallSlips
+    resetCallSlipPage
 );
 
 
 callNumberFilter.addEventListener(
     "change",
-    renderCallSlips
+    resetCallSlipPage
 );
 
 
