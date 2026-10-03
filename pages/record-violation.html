@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>CSUPAK | Record Violation</title>
+
+    <link
+        rel="stylesheet"
+        href="../src/output.css"
+    >
+</head>
+
+
+<body class="min-h-screen bg-[#F4F5F3] text-[#1F2933]">
+
+
+    <!-- =====================================================
+         SIDEBAR
+    ====================================================== -->
+
+    <aside
+        class="fixed left-0 top-0 flex h-screen w-56 flex-col bg-[#006B21] text-white"
+    >
+
+        <div class="border-b border-white/15 px-6 py-5">
+
+            <h1 class="text-2xl font-extrabold tracking-tight">
+                CSUPAK
+            </h1>
+
+            <p class="mt-0.5 text-[9px] text-green-100">
+                Student Violation Tracking System
+            </p>
+
+        </div>
+
+
+        <nav class="flex-1 px-3 py-5">
+
+            <a
+                href="dashboard.html"
+                class="mb-1 flex items-center rounded-lg px-4 py-2.5 text-sm font-medium text-green-50 hover:bg-white/10"
+            >
+                Dashboard
+            </a>
+
+
+            <a
+                href="record-violation.html"
+                class="mb-1 flex items-center rounded-lg bg-white/15 px-4 py-2.5 text-sm font-semibold"
+            >
+                Record Violation
+            </a>
+
+
+            <a
+                href="violations.html"
+                class="mb-1 flex items-center rounded-lg px-4 py-2.5 text-sm font-medium text-green-50 hover:bg-white/10"
+            >
+                Violations
+            </a>
+
+
+            <a
+                href="history.html"
+                class="mb-1 flex items-center rounded-lg px-4 py-2.5 text-sm font-medium text-green-50 hover:bg-white/10"
+            >
+                History
+            </a>
+
+
+            <a
+                id="complaintsNav"
+                href="complaints.html"
+                class="mb-1 hidden items-center rounded-lg px-4 py-2.5 text-sm font-medium text-green-50 hover:bg-white/10"
+            >
+                Add Complaint
+            </a>
+
+
+            <a
+                id="complaintTrackingNav"
+                href="complaint-tracking.html"
+                class="mb-1 hidden items-center rounded-lg px-4 py-2.5 text-sm font-medium text-green-50 hover:bg-white/10"
+            >
+                Complaint Tracking
+            </a>
+
+
+            <a
+                id="interviewTrackingNav"
+                href="call-slips.html"
+                class="mb-1 hidden items-center rounded-lg px-4 py-2.5 text-sm font-medium text-green-50 hover:bg-white/10"
+            >
+                Interview Tracking
+            </a>
+
+
+            <div class="my-5 border-t border-white/15"></div>
+
+
+            <a
+                href="#"
+                class="flex items-center rounded-lg px-4 py-2.5 text-sm font-medium text-green-50 hover:bg-white/10"
+            >
+                Settings
+            </a>
+
+        </nav>
+
+
+        <div class="border-t border-white/15 p-3">
+
+            <button
+                id="logoutButton"
+                type="button"
+                class="w-full rounded-lg px-4 py-2.5 text-left text-sm font-medium text-green-50 hover:bg-white/10"
+            >
+                Logout
+            </button>
+
+        </div>
+
+    </aside>
+
+
+
+    <!-- =====================================================
+         MAIN
+    ====================================================== -->
+
+    <main class="ml-56 min-h-screen">
+
+
+        <header class="border-b border-gray-200 bg-white">
+
+            <div class="flex items-center justify-between px-8 py-5">
+
+                <div>
+
+                    <h2 class="text-2xl font-bold tracking-tight text-[#006B21]">
+                        Record Violation
+                    </h2>
+
+                    <p class="mt-1 text-sm text-gray-500">
+                        Record a student violation and attach supporting evidence if needed.
+                    </p>
+
+                </div>
+
+
+                <div class="text-right">
+
+                    <p
+                        id="userName"
+                        class="text-sm font-semibold text-gray-800"
+                    >
+                        Loading...
+                    </p>
+
+                    <p
+                        id="userRole"
+                        class="mt-0.5 text-xs text-gray-400"
+                    >
+                        Loading role...
+                    </p>
+
+                </div>
+
+            </div>
+
+        </header>
+
+
+
+        <!-- =====================================================
+             CONTENT
+        ====================================================== -->
+
+        <div
+            id="pageContent"
+            class="hidden px-8 py-7"
+        >
+
+            <form
+                id="violationForm"
+                class="overflow-hidden rounded-2xl bg-white shadow-sm"
+            >
+
+                <div class="border-b border-gray-100 px-6 py-5">
+
+                    <h3 class="text-lg font-bold text-gray-900">
+                        Student Violation Form
+                    </h3>
+
+                    <p class="mt-1 text-sm text-gray-500">
+                        Enter the information recorded for the violation.
+                    </p>
+
+                </div>
+
+
+                <div class="p-6">
+
+
+                    <!-- =================================================
+                         STUDENT INFORMATION
+                    ================================================== -->
+
+                    <section>
+
+                        <div class="mb-5">
+
+                            <h4 class="text-sm font-bold uppercase tracking-wide text-[#006B21]">
+                                Student Information
+                            </h4>
+
+                            <p class="mt-1 text-xs text-gray-400">
+                                Information about the student involved.
+                            </p>
+
+                        </div>
+
+
+                        <div class="grid grid-cols-1 gap-5 md:grid-cols-2">
+
+
+                            <!-- STUDENT ID -->
+                            <div>
+
+                                <label
+                                    for="studentId"
+                                    class="mb-2 block text-sm font-semibold text-gray-700"
+                                >
+                                    Student ID *
+                                </label>
+
+                                <input
+                                    id="studentId"
+                                    type="text"
+                                    required
+                                    placeholder="Enter student ID"
+                                    class="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm outline-none transition focus:border-[#006B21] focus:ring-2 focus:ring-green-100"
+                                >
+
+                            </div>
+
+
+
+                            <!-- STUDENT NAME -->
+                            <div>
+
+                                <label
+                                    for="studentName"
+                                    class="mb-2 block text-sm font-semibold text-gray-700"
+                                >
+                                    Student Name *
+                                </label>
+
+                                <input
+                                    id="studentName"
+                                    type="text"
+                                    required
+                                    placeholder="Enter student name"
+                                    class="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm outline-none transition focus:border-[#006B21] focus:ring-2 focus:ring-green-100"
+                                >
+
+                            </div>
+
+
+
+                            <!-- COURSE -->
+                            <div>
+
+                                <label
+                                    for="courseId"
+                                    class="mb-2 block text-sm font-semibold text-gray-700"
+                                >
+                                    Course *
+                                </label>
+
+                                <select
+                                    id="courseId"
+                                    required
+                                    class="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-[#006B21] focus:ring-2 focus:ring-green-100"
+                                >
+
+                                    <option value="">
+                                        Loading courses...
+                                    </option>
+
+                                </select>
+
+                            </div>
+
+
+
+                            <!-- YEAR LEVEL -->
+                            <div>
+
+                                <label
+                                    for="yearLevel"
+                                    class="mb-2 block text-sm font-semibold text-gray-700"
+                                >
+                                    Year Level *
+                                </label>
+
+                                <select
+                                    id="yearLevel"
+                                    required
+                                    class="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-[#006B21] focus:ring-2 focus:ring-green-100"
+                                >
+
+                                    <option value="">
+                                        Select year
+                                    </option>
+
+                                    <option value="1">
+                                        1st Year
+                                    </option>
+
+                                    <option value="2">
+                                        2nd Year
+                                    </option>
+
+                                    <option value="3">
+                                        3rd Year
+                                    </option>
+
+                                    <option value="4">
+                                        4th Year
+                                    </option>
+
+                                    <option value="5">
+                                        5th Year
+                                    </option>
+
+                                    <option value="6">
+                                        6th Year
+                                    </option>
+
+                                </select>
+
+                            </div>
+
+                        </div>
+
+                    </section>
+
+
+
+                    <!-- =================================================
+                         VIOLATION INFORMATION
+                    ================================================== -->
+
+                    <section class="mt-8 border-t border-gray-100 pt-7">
+
+                        <div class="mb-5">
+
+                            <h4 class="text-sm font-bold uppercase tracking-wide text-[#006B21]">
+                                Violation Information
+                            </h4>
+
+                            <p class="mt-1 text-xs text-gray-400">
+                                Details of the recorded violation.
+                            </p>
+
+                        </div>
+
+
+                        <div class="grid grid-cols-1 gap-5 md:grid-cols-2">
+
+
+                            <div>
+
+                                <label
+                                    for="violationType"
+                                    class="mb-2 block text-sm font-semibold text-gray-700"
+                                >
+                                    Violation *
+                                </label>
+
+                                <input
+                                    id="violationType"
+                                    type="text"
+                                    required
+                                    placeholder="Enter violation type"
+                                    class="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm outline-none transition focus:border-[#006B21] focus:ring-2 focus:ring-green-100"
+                                >
+
+                            </div>
+
+
+
+                            <div>
+
+                                <label
+                                    for="location"
+                                    class="mb-2 block text-sm font-semibold text-gray-700"
+                                >
+                                    Location
+                                </label>
+
+                                <input
+                                    id="location"
+                                    type="text"
+                                    placeholder="Where the violation occurred"
+                                    class="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm outline-none transition focus:border-[#006B21] focus:ring-2 focus:ring-green-100"
+                                >
+
+                            </div>
+
+
+
+                            <div>
+
+                                <label
+                                    for="caughtBy"
+                                    class="mb-2 block text-sm font-semibold text-gray-700"
+                                >
+                                    Caught / Apprehended By
+                                </label>
+
+                                <input
+                                    id="caughtBy"
+                                    type="text"
+                                    placeholder="Name of authorized personnel"
+                                    class="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm outline-none transition focus:border-[#006B21] focus:ring-2 focus:ring-green-100"
+                                >
+
+                            </div>
+
+
+
+                            <div>
+
+                                <label
+                                    for="dateTime"
+                                    class="mb-2 block text-sm font-semibold text-gray-700"
+                                >
+                                    Date & Time *
+                                </label>
+
+                                <input
+                                    id="dateTime"
+                                    type="datetime-local"
+                                    required
+                                    class="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm outline-none transition focus:border-[#006B21] focus:ring-2 focus:ring-green-100"
+                                >
+
+                            </div>
+
+
+
+                            <div class="md:col-span-2">
+
+                                <label
+                                    for="remarks"
+                                    class="mb-2 block text-sm font-semibold text-gray-700"
+                                >
+                                    Remarks
+                                </label>
+
+                                <textarea
+                                    id="remarks"
+                                    rows="4"
+                                    placeholder="Additional remarks..."
+                                    class="w-full resize-none rounded-xl border border-gray-300 px-4 py-3 text-sm outline-none transition focus:border-[#006B21] focus:ring-2 focus:ring-green-100"
+                                ></textarea>
+
+                            </div>
+
+                        </div>
+
+                    </section>
+
+
+
+                    <!-- =================================================
+                         PHOTO
+                    ================================================== -->
+
+                    <section class="mt-8 border-t border-gray-100 pt-7">
+
+                        <div class="mb-5">
+
+                            <h4 class="text-sm font-bold uppercase tracking-wide text-[#006B21]">
+                                Photo Attachment
+                            </h4>
+
+                            <p class="mt-1 text-xs text-gray-400">
+                                Optional supporting evidence such as a photo of illegal parking.
+                            </p>
+
+                        </div>
+
+
+                        <div class="rounded-2xl border border-dashed border-gray-300 bg-gray-50 p-5">
+
+                            <div class="text-center">
+
+                                <p class="text-sm font-semibold text-gray-700">
+                                    Attach Evidence Photo
+                                </p>
+
+                                <p class="mt-1 text-xs text-gray-500">
+                                    JPG, PNG, or WEBP • Maximum 2 MB
+                                </p>
+
+
+                                <label
+                                    for="photoInput"
+                                    class="mt-4 inline-flex cursor-pointer rounded-lg bg-white px-4 py-2 text-sm font-semibold text-[#006B21] shadow-sm ring-1 ring-gray-200 transition hover:bg-green-50"
+                                >
+                                    Choose Photo
+                                </label>
+
+
+                                <input
+                                    id="photoInput"
+                                    type="file"
+                                    accept="image/jpeg,image/png,image/webp"
+                                    class="hidden"
+                                >
+
+                            </div>
+
+
+
+                            <div
+                                id="photoPreviewContainer"
+                                class="mt-5 hidden"
+                            >
+
+                                <div class="flex flex-col gap-4 rounded-xl bg-white p-4 ring-1 ring-gray-200 md:flex-row md:items-center">
+
+                                    <img
+                                        id="photoPreview"
+                                        src=""
+                                        alt="Selected evidence preview"
+                                        class="h-28 w-36 rounded-lg object-cover"
+                                    >
+
+
+                                    <div class="min-w-0 flex-1">
+
+                                        <p
+                                            id="photoName"
+                                            class="truncate text-sm font-semibold text-gray-800"
+                                        >
+                                        </p>
+
+                                        <p
+                                            id="photoSize"
+                                            class="mt-1 text-xs text-gray-500"
+                                        >
+                                        </p>
+
+
+                                        <button
+                                            id="removePhotoButton"
+                                            type="button"
+                                            class="mt-3 text-sm font-semibold text-red-600 hover:underline"
+                                        >
+                                            Remove Photo
+                                        </button>
+
+                                    </div>
+
+                                </div>
+
+                            </div>
+
+                        </div>
+
+                    </section>
+
+
+
+                    <div
+                        id="formMessage"
+                        class="mt-6 hidden rounded-xl px-4 py-3 text-sm"
+                    >
+                    </div>
+
+
+
+                    <div class="mt-7 flex justify-end gap-3 border-t border-gray-100 pt-6">
+
+                        <button
+                            id="clearButton"
+                            type="button"
+                            class="rounded-xl border border-gray-300 bg-white px-5 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
+                        >
+                            Clear
+                        </button>
+
+
+                        <button
+                            id="submitButton"
+                            type="submit"
+                            class="rounded-xl bg-[#006B21] px-6 py-2.5 text-sm font-bold text-white transition hover:bg-[#005619]"
+                        >
+                            Save Violation
+                        </button>
+
+                    </div>
+
+
+                </div>
+
+            </form>
+
+        </div>
+
+    </main>
+
+
+    <script
+        src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"
+    ></script>
+
+    <script src="../js/supabase.js"></script>
+    <script src="../js/auth.js"></script>
+    <script src="../js/record-violation.js"></script>
+
+</body>
+
+</html>
