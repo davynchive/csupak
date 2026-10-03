@@ -152,6 +152,10 @@ let currentProfile = null;
 let activeSemester = null;
 
 let selectedPhoto = null;
+let savedViolationId = null;
+let uploadedPhotoPath = null;
+let photoMetadataPending = false;
+let isSaving = false;
 
 let courses = [];
 
@@ -696,7 +700,10 @@ function showPhotoPreview(file) {
    REMOVE PHOTO
 ===================================================== */
 
-function removeSelectedPhoto() {
+function removeSelectedPhoto(force = false) {
+    if (isSaving && force !== true) return;
+    uploadedPhotoPath = null;
+    photoMetadataPending = false;
 
     selectedPhoto =
         null;
@@ -723,6 +730,10 @@ function removeSelectedPhoto() {
         .add(
             "hidden"
         );
+    if (savedViolationId !== null) {
+        showMessage("Violation #" + savedViolationId + " was saved. Select a photo to retry, or choose Start New Violation.", true);
+    }
+
 }
 
 
@@ -1078,48 +1089,22 @@ async function uploadViolationPhoto(
     }
 
 
-    const filePath =
-        createPhotoPath(
-            violationId,
-            selectedPhoto
-        );
-
-
-    const uploadResult =
-        await supabaseClient
-            .storage
-            .from(
-                "violation-photos"
-            )
-            .upload(
-                filePath,
-                selectedPhoto,
-                {
-                    cacheControl:
-                        "3600",
-
-                    upsert:
-                        false,
-
-                    contentType:
-                        selectedPhoto.type
-                }
-            );
-
-
-    if (uploadResult.error) {
-
-        console.error(
-            "Photo upload error:",
-            uploadResult.error
-        );
-
-
-        return {
-            success: false
-        };
+    if (!uploadedPhotoPath) {
+        const filePath = createPhotoPath(violationId, selectedPhoto);
+        const uploadResult = await supabaseClient.storage
+            .from("violation-photos")
+            .upload(filePath, selectedPhoto, {
+                cacheControl: "3600", upsert: false,
+                contentType: selectedPhoto.type
+            });
+        if (uploadResult.error) {
+            console.error("Photo upload error:", uploadResult.error);
+            return { success: false, stage: "upload" };
+        }
+        // Keep the successful upload for metadata-only retries.
+        uploadedPhotoPath = filePath;
+        photoMetadataPending = true;
     }
-
 
     const metadataResult =
         await supabaseClient
@@ -1132,7 +1117,7 @@ async function uploadViolationPhoto(
                     violationId,
 
                 file_path:
-                    filePath,
+                    uploadedPhotoPath,
 
                 file_name:
                     selectedPhoto.name,
@@ -1146,22 +1131,11 @@ async function uploadViolationPhoto(
 
 
     if (metadataResult.error) {
-
-        console.error(
-            "Photo metadata error:",
-            metadataResult.error
-        );
-
-
-        return {
-            success: false
-        };
+        console.error("Photo metadata error:", metadataResult.error);
+        return { success: false, stage: "metadata" };
     }
-
-
-    return {
-        success: true
-    };
+    photoMetadataPending = false;
+    return { success: true };
 }
 
 
@@ -1176,122 +1150,132 @@ async function saveViolation(
     event.preventDefault();
 
 
+    if (isSaving) return;
+
     hideMessage();
 
 
-    if (
-        !studentId
-            .value
-            .trim()
-    ) {
+    if (savedViolationId === null) {
+        if (
+            !studentId
+                .value
+                .trim()
+        ) {
 
-        showMessage(
-            "Please enter the student ID.",
-            false
-        );
-
-
-        studentId.focus();
+            showMessage(
+                "Please enter the student ID.",
+                false
+            );
 
 
-        return;
+            studentId.focus();
+
+
+            return;
+        }
+
+
+        if (
+            !studentName
+                .value
+                .trim()
+        ) {
+
+            showMessage(
+                "Please enter the student name.",
+                false
+            );
+
+
+            studentName.focus();
+
+
+            return;
+        }
+
+
+        if (!courseId.value) {
+
+            showMessage(
+                "Please select the student's course.",
+                false
+            );
+
+
+            courseId.focus();
+
+
+            return;
+        }
+
+
+        if (!yearLevel.value) {
+
+            showMessage(
+                "Please select the student's year level.",
+                false
+            );
+
+
+            yearLevel.focus();
+
+
+            return;
+        }
+
+
+        if (
+            !violationType
+                .value
+                .trim()
+        ) {
+
+            showMessage(
+                "Please enter the violation.",
+                false
+            );
+
+
+            violationType.focus();
+
+
+            return;
+        }
+
+
+        if (!dateTime.value) {
+
+            showMessage(
+                "Please enter the violation date and time.",
+                false
+            );
+
+
+            dateTime.focus();
+
+
+            return;
+        }
+
+
+        if (!activeSemester) {
+
+            showMessage(
+                "No active semester is available.",
+                false
+            );
+
+
+            return;
+        }
+
+
     }
 
-
-    if (
-        !studentName
-            .value
-            .trim()
-    ) {
-
-        showMessage(
-            "Please enter the student name.",
-            false
-        );
-
-
-        studentName.focus();
-
-
+    if (savedViolationId !== null && !selectedPhoto) {
+        showMessage("Violation #" + savedViolationId + " was saved. Select a photo to retry, or choose Start New Violation.", false);
         return;
     }
-
-
-    if (!courseId.value) {
-
-        showMessage(
-            "Please select the student's course.",
-            false
-        );
-
-
-        courseId.focus();
-
-
-        return;
-    }
-
-
-    if (!yearLevel.value) {
-
-        showMessage(
-            "Please select the student's year level.",
-            false
-        );
-
-
-        yearLevel.focus();
-
-
-        return;
-    }
-
-
-    if (
-        !violationType
-            .value
-            .trim()
-    ) {
-
-        showMessage(
-            "Please enter the violation.",
-            false
-        );
-
-
-        violationType.focus();
-
-
-        return;
-    }
-
-
-    if (!dateTime.value) {
-
-        showMessage(
-            "Please enter the violation date and time.",
-            false
-        );
-
-
-        dateTime.focus();
-
-
-        return;
-    }
-
-
-    if (!activeSemester) {
-
-        showMessage(
-            "No active semester is available.",
-            false
-        );
-
-
-        return;
-    }
-
 
     if (
         selectedPhoto &&
@@ -1304,160 +1288,88 @@ async function saveViolation(
     }
 
 
-    submitButton.disabled =
-        true;
-
-
-    submitButton.textContent =
-        "Saving...";
-
-
-    /*
-        STEP 1
-        STUDENT
-    */
-
-    const studentResult =
-        await getOrCreateStudent();
-
-
-    if (
-        !studentResult.success
-    ) {
-
-        showMessage(
-            "Unable to save the student information.",
-            false
-        );
-
-
-        submitButton.disabled =
-            false;
-
-
-        submitButton.textContent =
-            "Save Violation";
-
-
-        return;
-    }
-
-
-    /*
-        STEP 2
-        VIOLATION
-    */
-
-    const violationResult =
-        await createViolation(
-            studentResult.studentId
-        );
-
-
-    if (
-        !violationResult.success
-    ) {
-
-        showMessage(
-            "Unable to save the violation.",
-            false
-        );
-
-
-        submitButton.disabled =
-            false;
-
-
-        submitButton.textContent =
-            "Save Violation";
-
-
-        return;
-    }
-
-
-    /*
-        STEP 3
-        PHOTO
-    */
-
-    if (selectedPhoto) {
-
-        submitButton.textContent =
-            "Uploading photo...";
-
-
-        const photoResult =
-            await uploadViolationPhoto(
-                violationResult.violationId
-            );
-
-
-        if (!photoResult.success) {
-
-            showMessage(
-                "The violation was saved, but the photo could not be uploaded.",
-                false
-            );
-
-
-            submitButton.disabled =
-                false;
-
-
-            submitButton.textContent =
-                "Save Violation";
-
-
-            return;
+    isSaving = true;
+    updateFormState();
+    try {
+        if (savedViolationId === null) {
+            submitButton.textContent = "Saving...";
+            const studentResult = await getOrCreateStudent();
+            if (!studentResult.success) {
+                showMessage("Unable to save the student information.", false);
+                return;
+            }
+            const violationResult = await createViolation(studentResult.studentId);
+            if (!violationResult.success) {
+                showMessage("Unable to save the violation.", false);
+                return;
+            }
+            savedViolationId = violationResult.violationId;
+            updateFormState();
         }
+        if (selectedPhoto) {
+            submitButton.textContent = photoMetadataPending
+                ? "Saving photo details..." : "Uploading photo...";
+            const photoResult = await uploadViolationPhoto(savedViolationId);
+            if (!photoResult.success) {
+                showPhotoFailure(photoResult.stage);
+                return;
+            }
+        }
+        resetViolationForm();
+        showMessage("Violation saved successfully.", true);
+    } catch (error) {
+        console.error("Unable to complete submission:", error);
+        if (savedViolationId !== null) {
+            showPhotoFailure(photoMetadataPending ? "metadata" : "upload");
+        } else {
+            showMessage("Unable to complete the save. Check whether the violation was saved before submitting again.", false);
+        }
+    } finally {
+        isSaving = false;
+        updateFormState();
     }
-
-
-    /*
-        SUCCESS
-    */
-
-    showMessage(
-        "Violation saved successfully.",
-        true
-    );
-
-
-    violationForm.reset();
-
-
-    removeSelectedPhoto();
-
-
-    setCurrentDateTime();
-
-
-    submitButton.disabled =
-        false;
-
-
-    submitButton.textContent =
-        "Save Violation";
 }
 
+function showPhotoFailure(stage) {
+    const detail = stage === "metadata"
+        ? "The photo uploaded, but its details could not be saved. Retry Photo will retry the details using the same uploaded file."
+        : "The photo upload failed. Retry Photo will retry the photo for this existing violation.";
+    showMessage("Violation #" + savedViolationId + " was saved. " + detail, false);
+}
+
+function updateFormState() {
+    const retryMode = savedViolationId !== null;
+    [studentId, studentName, courseId, yearLevel, violationType,
+        locationInput, caughtBy, dateTime, remarks].forEach(function (field) {
+        field.disabled = isSaving || retryMode;
+    });
+    photoInput.disabled = isSaving;
+    removePhotoButton.disabled = isSaving;
+    clearButton.disabled = isSaving;
+    clearButton.textContent = retryMode ? "Start New Violation" : "Clear";
+    submitButton.disabled = isSaving;
+    if (!isSaving) submitButton.textContent = retryMode ? "Retry Photo" : "Save Violation";
+}
+
+function resetViolationForm() {
+    savedViolationId = null;
+    violationForm.reset();
+    removeSelectedPhoto(true);
+    setCurrentDateTime();
+    updateFormState();
+}
 
 /* =====================================================
    CLEAR
 ===================================================== */
 
 function clearForm() {
-
-    violationForm.reset();
-
-
-    removeSelectedPhoto();
-
-
+    if (isSaving) return;
+    if (savedViolationId !== null && !window.confirm(
+        "Violation #" + savedViolationId + " is already saved. Start a new violation and abandon this photo retry? The saved violation will remain."
+    )) return;
+    resetViolationForm();
     hideMessage();
-
-
-    setCurrentDateTime();
 }
 
 
@@ -1468,6 +1380,8 @@ function clearForm() {
 photoInput.addEventListener(
     "change",
     function () {
+
+        if (isSaving) return;
 
         const file =
             photoInput.files[0];
@@ -1493,12 +1407,19 @@ photoInput.addEventListener(
         }
 
 
+        if (selectedPhoto !== file) {
+            uploadedPhotoPath = null;
+            photoMetadataPending = false;
+        }
         selectedPhoto =
             file;
 
 
-        hideMessage();
-
+        if (savedViolationId !== null) {
+            showMessage("Violation #" + savedViolationId + " was saved. Retry Photo will attach the selected photo to this violation.", true);
+        } else {
+            hideMessage();
+        }
 
         showPhotoPreview(
             file
