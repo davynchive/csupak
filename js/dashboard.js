@@ -8,54 +8,86 @@
 ===================================================== */
 
 const welcomeMessage =
-    document.getElementById("welcomeMessage");
+    document.getElementById(
+        "welcomeMessage"
+    );
 
 const roleMessage =
-    document.getElementById("roleMessage");
+    document.getElementById(
+        "roleMessage"
+    );
 
 const logoutButton =
-    document.getElementById("logoutButton");
+    document.getElementById(
+        "logoutButton"
+    );
 
 
 const complaintsNav =
-    document.getElementById("complaintsNav");
+    document.getElementById(
+        "complaintsNav"
+    );
 
 const complaintTrackingNav =
-    document.getElementById("complaintTrackingNav");
+    document.getElementById(
+        "complaintTrackingNav"
+    );
 
 const interviewTrackingNav =
-    document.getElementById("interviewTrackingNav");
+    document.getElementById(
+        "interviewTrackingNav"
+    );
 
 const complaintsCard =
-    document.getElementById("complaintsCard");
+    document.getElementById(
+        "complaintsCard"
+    );
 
 const recordViolationCard =
-    document.getElementById("recordViolationCard");
+    document.getElementById(
+        "recordViolationCard"
+    );
 
 
 const monthlyReportSection =
-    document.getElementById("monthlyReportSection");
+    document.getElementById(
+        "monthlyReportSection"
+    );
 
 const reportMonth =
-    document.getElementById("reportMonth");
+    document.getElementById(
+        "reportMonth"
+    );
 
 const reportMonthTitle =
-    document.getElementById("reportMonthTitle");
+    document.getElementById(
+        "reportMonthTitle"
+    );
 
 const generateReportButton =
-    document.getElementById("generateReportButton");
+    document.getElementById(
+        "generateReportButton"
+    );
 
 const totalViolations =
-    document.getElementById("totalViolations");
+    document.getElementById(
+        "totalViolations"
+    );
 
 const violationTypeCards =
-    document.getElementById("violationTypeCards");
+    document.getElementById(
+        "violationTypeCards"
+    );
 
 const collegeCards =
-    document.getElementById("collegeCards");
+    document.getElementById(
+        "collegeCards"
+    );
 
 const recentRecords =
-    document.getElementById("recentRecords");
+    document.getElementById(
+        "recentRecords"
+    );
 
 
 /* =====================================================
@@ -63,16 +95,24 @@ const recentRecords =
 ===================================================== */
 
 const collegeModal =
-    document.getElementById("collegeModal");
+    document.getElementById(
+        "collegeModal"
+    );
 
 const modalCollegeName =
-    document.getElementById("modalCollegeName");
+    document.getElementById(
+        "modalCollegeName"
+    );
 
 const modalCollegeMonth =
-    document.getElementById("modalCollegeMonth");
+    document.getElementById(
+        "modalCollegeMonth"
+    );
 
 const modalCollegeTotal =
-    document.getElementById("modalCollegeTotal");
+    document.getElementById(
+        "modalCollegeTotal"
+    );
 
 const modalViolationBreakdown =
     document.getElementById(
@@ -106,24 +146,21 @@ let selectedMonthViolations = [];
 
 
 /* =====================================================
-   LOAD CURRENT USER
+   USER PROFILE
 ===================================================== */
 
 async function loadUserProfile() {
 
     const userResult =
-        await supabaseClient.auth.getUser();
+        await supabaseClient
+            .auth
+            .getUser();
 
 
     if (
         userResult.error ||
         !userResult.data.user
     ) {
-
-        console.error(
-            "Unable to load user:",
-            userResult.error
-        );
 
         window.location.href =
             "../index.html";
@@ -156,9 +193,6 @@ async function loadUserProfile() {
             profileResult.error
         );
 
-        roleMessage.textContent =
-            "Unable to load account information.";
-
         return false;
     }
 
@@ -186,22 +220,25 @@ async function loadUserProfile() {
 
 
 /* =====================================================
-   ROLE DISPLAY
+   ROLE NAME
 ===================================================== */
 
 function getRoleDisplayName(role) {
 
     if (role === "oswe_admin") {
+
         return "OSWE Administrator";
     }
 
 
     if (role === "oswe_staff") {
+
         return "OSWE Staff";
     }
 
 
     if (role === "security_office") {
+
         return "Security Office";
     }
 
@@ -211,59 +248,34 @@ function getRoleDisplayName(role) {
 
 
 /* =====================================================
-   ROLE-BASED ACCESS
+   ROLE PERMISSIONS
 ===================================================== */
 
 function applyRolePermissions() {
 
     if (!currentProfile) {
+
         return;
     }
 
 
     /*
-        RECORD VIOLATION
-
-        Security Office:
-        YES
-
-        OSWE Staff:
-        YES
-
-        OSWE Admin:
-        YES
+        EVERY ROLE CAN RECORD VIOLATIONS
     */
 
     if (recordViolationCard) {
 
-        recordViolationCard.classList.remove(
-            "hidden"
-        );
+        recordViolationCard
+            .classList
+            .remove(
+                "hidden"
+            );
     }
 
 
-    /*
-        COMPLAINTS
-
-        OSWE ADMIN
-        - Add complaints
-        - View complaints
-        - Track complaints
-        - Manage complaints
-        - Interview tracking
-
-
-        OSWE STAFF
-        - Add complaints
-        - Cannot view complaint tracking
-        - Cannot manage complaints
-        - Cannot access interview tracking
-
-
-        SECURITY OFFICE
-        - No complaint access
-    */
-
+    /* =================================================
+       OSWE ADMIN
+    ================================================= */
 
     if (
         currentProfile.role ===
@@ -271,116 +283,7 @@ function applyRolePermissions() {
     ) {
 
         /*
-            Main Complaints navigation
-        */
-
-        if (complaintsNav) {
-
-            complaintsNav.classList.remove(
-                "hidden"
-            );
-
-            complaintsNav.classList.add(
-                "flex"
-            );
-
-            complaintsNav.textContent =
-                "Complaints";
-        }
-
-
-        /*
-            Complaint Tracking
-        */
-
-        if (complaintTrackingNav) {
-
-            complaintTrackingNav
-                .classList
-                .remove(
-                    "hidden"
-                );
-
-            complaintTrackingNav
-                .classList
-                .add(
-                    "flex"
-                );
-        }
-
-
-        /*
-            Interview Tracking
-        */
-
-        if (interviewTrackingNav) {
-
-            interviewTrackingNav
-                .classList
-                .remove(
-                    "hidden"
-                );
-
-            interviewTrackingNav
-                .classList
-                .add(
-                    "flex"
-                );
-        }
-
-
-        /*
-            Quick Action
-        */
-
-        if (complaintsCard) {
-
-            complaintsCard
-                .classList
-                .remove(
-                    "hidden"
-                );
-
-            complaintsCard
-                .classList
-                .add(
-                    "flex"
-                );
-
-
-            const title =
-                complaintsCard.querySelector(
-                    "p:first-child"
-                );
-
-
-            const description =
-                complaintsCard.querySelector(
-                    "p:nth-child(2)"
-                );
-
-
-            if (title) {
-
-                title.textContent =
-                    "Complaint Tracking";
-            }
-
-
-            if (description) {
-
-                description.textContent =
-                    "Manage complaints";
-            }
-        }
-
-    } else if (
-        currentProfile.role ===
-        "oswe_staff"
-    ) {
-
-        /*
-            OSWE Staff can ADD complaints.
+            ADD COMPLAINT
         */
 
         if (complaintsNav) {
@@ -403,8 +306,129 @@ function applyRolePermissions() {
 
 
         /*
-            But OSWE Staff cannot
-            track complaints.
+            COMPLAINT TRACKING
+        */
+
+        if (complaintTrackingNav) {
+
+            complaintTrackingNav.href =
+                "complaint-tracking.html";
+
+
+            complaintTrackingNav
+                .classList
+                .remove(
+                    "hidden"
+                );
+
+            complaintTrackingNav
+                .classList
+                .add(
+                    "flex"
+                );
+        }
+
+
+        /*
+            INTERVIEW TRACKING
+        */
+
+        if (interviewTrackingNav) {
+
+            interviewTrackingNav
+                .classList
+                .remove(
+                    "hidden"
+                );
+
+            interviewTrackingNav
+                .classList
+                .add(
+                    "flex"
+                );
+        }
+
+
+        /*
+            QUICK ACTION
+        */
+
+        if (complaintsCard) {
+
+            complaintsCard.href =
+                "complaints.html";
+
+
+            complaintsCard
+                .classList
+                .remove(
+                    "hidden"
+                );
+
+            complaintsCard
+                .classList
+                .add(
+                    "flex"
+                );
+
+
+            const texts =
+                complaintsCard
+                    .querySelectorAll(
+                        "p"
+                    );
+
+
+            if (texts[0]) {
+
+                texts[0].textContent =
+                    "Add Complaint";
+            }
+
+
+            if (texts[1]) {
+
+                texts[1].textContent =
+                    "Record a new complaint";
+            }
+        }
+    }
+
+
+    /* =================================================
+       OSWE STAFF
+    ================================================= */
+
+    else if (
+        currentProfile.role ===
+        "oswe_staff"
+    ) {
+
+        /*
+            ADD COMPLAINT
+        */
+
+        if (complaintsNav) {
+
+            complaintsNav
+                .classList
+                .remove(
+                    "hidden"
+                );
+
+            complaintsNav
+                .classList
+                .add(
+                    "flex"
+                );
+
+            complaintsNav.textContent =
+                "Add Complaint";
+        }
+
+
+        /*
+            NO COMPLAINT TRACKING
         */
 
         if (complaintTrackingNav) {
@@ -424,33 +448,36 @@ function applyRolePermissions() {
 
 
         /*
-            OSWE Staff cannot
-            access interview tracking.
+            INTERVIEW TRACKING
+
+            STAFF CAN ACCESS THIS.
         */
 
         if (interviewTrackingNav) {
 
             interviewTrackingNav
                 .classList
-                .add(
+                .remove(
                     "hidden"
                 );
 
             interviewTrackingNav
                 .classList
-                .remove(
+                .add(
                     "flex"
                 );
         }
 
 
         /*
-            Quick Action becomes
-            ADD COMPLAINT instead of
-            Complaint Tracking.
+            QUICK ACTION
         */
 
         if (complaintsCard) {
+
+            complaintsCard.href =
+                "complaints.html";
+
 
             complaintsCard
                 .classList
@@ -465,37 +492,34 @@ function applyRolePermissions() {
                 );
 
 
-            const title =
-                complaintsCard.querySelector(
-                    "p:first-child"
-                );
+            const texts =
+                complaintsCard
+                    .querySelectorAll(
+                        "p"
+                    );
 
 
-            const description =
-                complaintsCard.querySelector(
-                    "p:nth-child(2)"
-                );
+            if (texts[0]) {
 
-
-            if (title) {
-
-                title.textContent =
+                texts[0].textContent =
                     "Add Complaint";
             }
 
 
-            if (description) {
+            if (texts[1]) {
 
-                description.textContent =
+                texts[1].textContent =
                     "Record a new complaint";
             }
         }
+    }
 
-    } else {
 
-        /*
-            SECURITY OFFICE
-        */
+    /* =================================================
+       SECURITY OFFICE
+    ================================================= */
+
+    else {
 
         if (complaintsNav) {
 
@@ -562,18 +586,13 @@ function applyRolePermissions() {
     }
 
 
-    /*
-        MONTHLY REPORT
+    /* =================================================
+       MONTHLY REPORT
 
-        OSWE Admin:
-        YES
-
-        OSWE Staff:
-        YES
-
-        Security Office:
-        NO
-    */
+       Admin: YES
+       Staff: YES
+       Security: NO
+    ================================================= */
 
     if (monthlyReportSection) {
 
@@ -603,7 +622,7 @@ function applyRolePermissions() {
 
 
 /* =====================================================
-   LOAD ACTIVE SEMESTER
+   ACTIVE SEMESTER
 ===================================================== */
 
 async function loadActiveSemester() {
@@ -634,27 +653,20 @@ async function loadActiveSemester() {
         result.data;
 
 
-    if (!activeSemester) {
-
-        console.warn(
-            "No active semester found."
-        );
-
-        return false;
-    }
-
-
-    return true;
+    return Boolean(
+        activeSemester
+    );
 }
 
 
 /* =====================================================
-   LOAD VIOLATIONS
+   VIOLATIONS
 ===================================================== */
 
 async function loadViolations() {
 
     if (!activeSemester) {
+
         return;
     }
 
@@ -700,9 +712,12 @@ async function loadViolations() {
             result.error
         );
 
+
         allViolations = [];
 
+
         renderDashboard();
+
 
         return;
     }
@@ -717,7 +732,7 @@ async function loadViolations() {
 
 
 /* =====================================================
-   DASHBOARD RENDER
+   RENDER DASHBOARD
 ===================================================== */
 
 function renderDashboard() {
@@ -744,28 +759,27 @@ function updateMonthTitle() {
         !reportMonth ||
         !reportMonthTitle
     ) {
+
         return;
     }
 
 
-    const selectedOption =
+    const option =
         reportMonth.options[
             reportMonth.selectedIndex
         ];
 
 
-    if (!selectedOption) {
-        return;
+    if (option) {
+
+        reportMonthTitle.textContent =
+            option.textContent;
     }
-
-
-    reportMonthTitle.textContent =
-        selectedOption.textContent;
 }
 
 
 /* =====================================================
-   FILTER VIOLATIONS BY MONTH
+   FILTER MONTH
 ===================================================== */
 
 function filterViolationsByMonth() {
@@ -790,6 +804,7 @@ function filterViolationsByMonth() {
             function (violation) {
 
                 if (!violation.date_time) {
+
                     return false;
                 }
 
@@ -810,7 +825,7 @@ function filterViolationsByMonth() {
 
 
 /* =====================================================
-   RENDER VIOLATION TYPE CARDS
+   VIOLATION TYPE CARDS
 ===================================================== */
 
 function renderViolationTypes() {
@@ -819,6 +834,7 @@ function renderViolationTypes() {
         !violationTypeCards ||
         !totalViolations
     ) {
+
         return;
     }
 
@@ -827,126 +843,115 @@ function renderViolationTypes() {
         selectedMonthViolations.length;
 
 
-    /*
-        Remove old dynamically generated cards.
-
-        Keep the first card because that is
-        the Total Violations card already
-        written in dashboard.html.
-    */
-
-    const dynamicCards =
-        violationTypeCards.querySelectorAll(
-            "[data-violation-type-card]"
-        );
+    const oldCards =
+        violationTypeCards
+            .querySelectorAll(
+                "[data-violation-type-card]"
+            );
 
 
-    dynamicCards.forEach(
+    oldCards.forEach(
         function (card) {
+
             card.remove();
         }
     );
 
 
-    const typeCounts = {};
+    const counts = {};
 
 
     selectedMonthViolations.forEach(
         function (violation) {
 
-            let type =
-                violation.violation_type;
+            const type =
+                violation.violation_type ||
+                "Unspecified";
 
 
-            if (!type) {
-                type = "Unspecified";
+            if (!counts[type]) {
+
+                counts[type] = 0;
             }
 
 
-            if (!typeCounts[type]) {
-                typeCounts[type] = 0;
-            }
-
-
-            typeCounts[type]++;
+            counts[type]++;
         }
     );
 
 
-    const types =
-        Object.keys(
-            typeCounts
-        ).sort();
+    Object.keys(
+        counts
+    )
+        .sort()
+        .forEach(
+            function (type) {
+
+                const card =
+                    document.createElement(
+                        "div"
+                    );
 
 
-    types.forEach(
-        function (type) {
-
-            const card =
-                document.createElement(
-                    "div"
+                card.setAttribute(
+                    "data-violation-type-card",
+                    "true"
                 );
 
 
-            card.setAttribute(
-                "data-violation-type-card",
-                "true"
-            );
+                card.className =
+                    "min-w-[145px] flex-1 rounded-xl bg-white/95 px-4 py-4";
 
 
-            card.className =
-                "min-w-[145px] flex-1 rounded-xl bg-white/95 px-4 py-4";
+                const number =
+                    document.createElement(
+                        "p"
+                    );
 
 
-            const number =
-                document.createElement(
-                    "p"
+                number.className =
+                    "text-2xl font-bold text-[#006B21]";
+
+
+                number.textContent =
+                    counts[type];
+
+
+                const label =
+                    document.createElement(
+                        "p"
+                    );
+
+
+                label.className =
+                    "mt-1 text-xs font-medium text-gray-500";
+
+
+                label.textContent =
+                    type;
+
+
+                card.appendChild(
+                    number
                 );
 
 
-            number.className =
-                "text-2xl font-bold text-[#006B21]";
-
-
-            number.textContent =
-                typeCounts[type];
-
-
-            const label =
-                document.createElement(
-                    "p"
+                card.appendChild(
+                    label
                 );
 
 
-            label.className =
-                "mt-1 text-xs font-medium text-gray-500";
-
-
-            label.textContent =
-                type;
-
-
-            card.appendChild(
-                number
-            );
-
-
-            card.appendChild(
-                label
-            );
-
-
-            violationTypeCards
-                .appendChild(
-                    card
-                );
-        }
-    );
+                violationTypeCards
+                    .appendChild(
+                        card
+                    );
+            }
+        );
 }
 
 
 /* =====================================================
-   BUILD COLLEGE DATA
+   COLLEGE DATA
 ===================================================== */
 
 function buildCollegeData() {
@@ -983,7 +988,7 @@ function buildCollegeData() {
             colleges[college].total++;
 
 
-            let type =
+            const type =
                 violation.violation_type ||
                 "Unspecified";
 
@@ -1012,61 +1017,50 @@ function buildCollegeData() {
 
 
 /* =====================================================
-   RENDER COLLEGE CARDS
+   COLLEGE CARDS
 ===================================================== */
 
 function renderCollegeCards() {
 
     if (!collegeCards) {
+
         return;
     }
 
 
-    collegeCards.innerHTML = "";
+    collegeCards.innerHTML =
+        "";
 
 
     const colleges =
         buildCollegeData();
 
 
-    const collegeNames =
+    const names =
         Object.keys(
             colleges
         ).sort();
 
 
     if (
-        collegeNames.length === 0
+        names.length === 0
     ) {
 
-        const emptyMessage =
-            document.createElement(
-                "div"
-            );
-
-
-        emptyMessage.className =
-            "col-span-full rounded-xl bg-white/10 px-4 py-6 text-center text-sm text-green-100";
-
-
-        emptyMessage.textContent =
-            "No violation records for this month.";
-
-
-        collegeCards.appendChild(
-            emptyMessage
-        );
+        collegeCards.innerHTML =
+            "<div class=\"col-span-full rounded-xl bg-white/10 px-4 py-6 text-center text-sm text-green-100\">" +
+                "No violation records for this month." +
+            "</div>";
 
 
         return;
     }
 
 
-    collegeNames.forEach(
-        function (collegeName) {
+    names.forEach(
+        function (name) {
 
             const data =
-                colleges[collegeName];
+                colleges[name];
 
 
             const button =
@@ -1083,41 +1077,41 @@ function renderCollegeCards() {
                 "rounded-xl bg-white px-4 py-4 text-left transition hover:-translate-y-0.5 hover:shadow-md";
 
 
-            const count =
+            const number =
                 document.createElement(
                     "p"
                 );
 
 
-            count.className =
+            number.className =
                 "text-2xl font-bold text-[#006B21]";
 
 
-            count.textContent =
+            number.textContent =
                 data.total;
 
 
-            const name =
+            const label =
                 document.createElement(
                     "p"
                 );
 
 
-            name.className =
+            label.className =
                 "mt-1 truncate text-xs font-semibold text-gray-600";
 
 
-            name.textContent =
-                collegeName;
+            label.textContent =
+                name;
 
 
             button.appendChild(
-                count
+                number
             );
 
 
             button.appendChild(
-                name
+                label
             );
 
 
@@ -1126,7 +1120,7 @@ function renderCollegeCards() {
                 function () {
 
                     openCollegeModal(
-                        collegeName,
+                        name,
                         data
                     );
                 }
@@ -1142,36 +1136,28 @@ function renderCollegeCards() {
 
 
 /* =====================================================
-   OPEN COLLEGE MODAL
+   COLLEGE MODAL
 ===================================================== */
 
 function openCollegeModal(
-    collegeName,
+    name,
     data
 ) {
 
-    if (!collegeModal) {
-        return;
-    }
-
-
     modalCollegeName.textContent =
-        collegeName;
+        name;
 
 
-    if (reportMonth) {
-
-        const selectedOption =
-            reportMonth.options[
-                reportMonth.selectedIndex
-            ];
+    const option =
+        reportMonth.options[
+            reportMonth.selectedIndex
+        ];
 
 
-        if (selectedOption) {
+    if (option) {
 
-            modalCollegeMonth.textContent =
-                selectedOption.textContent;
-        }
+        modalCollegeMonth.textContent =
+            option.textContent;
     }
 
 
@@ -1189,102 +1175,75 @@ function openCollegeModal(
         ).sort();
 
 
-    if (types.length === 0) {
+    types.forEach(
+        function (type, index) {
 
-        const empty =
-            document.createElement(
-                "div"
-            );
-
-
-        empty.className =
-            "px-4 py-5 text-center text-sm text-gray-500";
+            const row =
+                document.createElement(
+                    "div"
+                );
 
 
-        empty.textContent =
-            "No violation records.";
+            row.className =
+                "flex items-center justify-between px-4 py-3";
 
 
-        modalViolationBreakdown
-            .appendChild(
-                empty
-            );
-
-    } else {
-
-        types.forEach(
-            function (
-                type,
-                index
+            if (
+                index <
+                types.length - 1
             ) {
 
-                const row =
-                    document.createElement(
-                        "div"
-                    );
-
-
-                row.className =
-                    "flex items-center justify-between px-4 py-3";
-
-
-                if (
-                    index <
-                    types.length - 1
-                ) {
-
-                    row.classList.add(
-                        "border-b",
-                        "border-gray-100"
-                    );
-                }
-
-
-                const name =
-                    document.createElement(
-                        "p"
-                    );
-
-
-                name.className =
-                    "text-sm text-gray-700";
-
-
-                name.textContent =
-                    type;
-
-
-                const count =
-                    document.createElement(
-                        "span"
-                    );
-
-
-                count.className =
-                    "rounded-full bg-[#F3F7F3] px-3 py-1 text-xs font-bold text-[#006B21]";
-
-
-                count.textContent =
-                    data.types[type];
-
-
-                row.appendChild(
-                    name
+                row.classList.add(
+                    "border-b",
+                    "border-gray-100"
                 );
-
-
-                row.appendChild(
-                    count
-                );
-
-
-                modalViolationBreakdown
-                    .appendChild(
-                        row
-                    );
             }
-        );
-    }
+
+
+            const label =
+                document.createElement(
+                    "p"
+                );
+
+
+            label.className =
+                "text-sm text-gray-700";
+
+
+            label.textContent =
+                type;
+
+
+            const count =
+                document.createElement(
+                    "span"
+                );
+
+
+            count.className =
+                "rounded-full bg-[#F3F7F3] px-3 py-1 text-xs font-bold text-[#006B21]";
+
+
+            count.textContent =
+                data.types[type];
+
+
+            row.appendChild(
+                label
+            );
+
+
+            row.appendChild(
+                count
+            );
+
+
+            modalViolationBreakdown
+                .appendChild(
+                    row
+                );
+        }
+    );
 
 
     collegeModal.classList.remove(
@@ -1299,12 +1258,13 @@ function openCollegeModal(
 
 
 /* =====================================================
-   CLOSE COLLEGE MODAL
+   CLOSE MODAL
 ===================================================== */
 
 function hideCollegeModal() {
 
     if (!collegeModal) {
+
         return;
     }
 
@@ -1327,375 +1287,161 @@ function hideCollegeModal() {
 function renderRecentRecords() {
 
     if (!recentRecords) {
+
         return;
     }
 
 
-    recentRecords.innerHTML = "";
+    recentRecords.innerHTML =
+        "";
 
 
-    const recent =
+    const records =
         allViolations.slice(
             0,
             5
         );
 
 
-    if (recent.length === 0) {
+    if (
+        records.length === 0
+    ) {
 
-        const empty =
-            document.createElement(
-                "div"
-            );
-
-
-        empty.className =
-            "rounded-xl bg-gray-50 px-4 py-8 text-center";
-
-
-        const message =
-            document.createElement(
-                "p"
-            );
-
-
-        message.className =
-            "text-sm text-gray-500";
-
-
-        message.textContent =
-            "No recent violation records.";
-
-
-        empty.appendChild(
-            message
-        );
-
-
-        recentRecords.appendChild(
-            empty
-        );
+        recentRecords.innerHTML =
+            "<div class=\"rounded-xl bg-gray-50 px-4 py-8 text-center\">" +
+                "<p class=\"text-sm text-gray-500\">" +
+                    "No recent violation records." +
+                "</p>" +
+            "</div>";
 
 
         return;
     }
 
 
-    const tableContainer =
+    const container =
         document.createElement(
             "div"
         );
 
 
-    tableContainer.className =
-        "overflow-x-auto";
+    container.className =
+        "space-y-2";
 
 
-    const table =
-        document.createElement(
-            "table"
-        );
-
-
-    table.className =
-        "w-full text-left";
-
-
-    table.innerHTML =
-        "<thead>" +
-            "<tr class=\"border-b border-gray-100\">" +
-                "<th class=\"pb-3 pr-4 text-xs font-semibold uppercase tracking-wide text-gray-400\">" +
-                    "Student" +
-                "</th>" +
-                "<th class=\"pb-3 pr-4 text-xs font-semibold uppercase tracking-wide text-gray-400\">" +
-                    "Violation" +
-                "</th>" +
-                "<th class=\"pb-3 pr-4 text-xs font-semibold uppercase tracking-wide text-gray-400\">" +
-                    "Date" +
-                "</th>" +
-                "<th class=\"pb-3 text-xs font-semibold uppercase tracking-wide text-gray-400\">" +
-                    "Status" +
-                "</th>" +
-            "</tr>" +
-        "</thead>";
-
-
-    const tbody =
-        document.createElement(
-            "tbody"
-        );
-
-
-    recent.forEach(
+    records.forEach(
         function (violation) {
 
             const row =
                 document.createElement(
-                    "tr"
+                    "div"
                 );
 
 
             row.className =
-                "border-b border-gray-50 last:border-b-0";
+                "flex items-center justify-between rounded-xl border border-gray-100 px-4 py-3";
 
 
-            /*
-                STUDENT
-            */
-
-            const studentCell =
+            const left =
                 document.createElement(
-                    "td"
+                    "div"
                 );
 
 
-            studentCell.className =
-                "py-3 pr-4";
-
-
-            const studentName =
+            const name =
                 document.createElement(
                     "p"
                 );
 
 
-            studentName.className =
+            name.className =
                 "text-sm font-semibold text-gray-800";
 
 
-            if (
+            name.textContent =
                 violation.students &&
                 violation.students.student_name
-            ) {
-
-                studentName.textContent =
-                    violation.students
-                        .student_name;
-
-            } else {
-
-                studentName.textContent =
-                    "Unknown Student";
-            }
+                    ? violation.students.student_name
+                    : "Unknown Student";
 
 
-            const studentId =
+            const type =
                 document.createElement(
                     "p"
                 );
 
 
-            studentId.className =
-                "mt-0.5 text-xs text-gray-400";
+            type.className =
+                "mt-1 text-xs text-gray-500";
 
 
-            if (
-                violation.students &&
-                violation.students.student_id
-            ) {
-
-                studentId.textContent =
-                    violation.students
-                        .student_id;
-            }
-
-
-            studentCell.appendChild(
-                studentName
-            );
-
-
-            studentCell.appendChild(
-                studentId
-            );
-
-
-            /*
-                VIOLATION
-            */
-
-            const violationCell =
-                document.createElement(
-                    "td"
-                );
-
-
-            violationCell.className =
-                "py-3 pr-4 text-sm text-gray-700";
-
-
-            violationCell.textContent =
+            type.textContent =
                 violation.violation_type ||
                 "Unspecified";
 
 
-            /*
-                DATE
-            */
-
-            const dateCell =
-                document.createElement(
-                    "td"
-                );
+            left.appendChild(
+                name
+            );
 
 
-            dateCell.className =
-                "py-3 pr-4 text-sm text-gray-500";
+            left.appendChild(
+                type
+            );
 
 
-            dateCell.textContent =
-                formatDate(
-                    violation.date_time
-                );
-
-
-            /*
-                STATUS
-            */
-
-            const statusCell =
-                document.createElement(
-                    "td"
-                );
-
-
-            statusCell.className =
-                "py-3";
-
-
-            const badge =
+            const status =
                 document.createElement(
                     "span"
                 );
 
 
-            badge.className =
-                getStatusClass(
-                    violation.status
-                );
+            status.className =
+                "text-xs font-semibold text-[#006B21]";
 
 
-            badge.textContent =
+            status.textContent =
                 violation.status ||
                 "Pending";
 
 
-            statusCell.appendChild(
-                badge
+            row.appendChild(
+                left
             );
 
 
             row.appendChild(
-                studentCell
+                status
             );
 
 
-            row.appendChild(
-                violationCell
-            );
-
-
-            row.appendChild(
-                dateCell
-            );
-
-
-            row.appendChild(
-                statusCell
-            );
-
-
-            tbody.appendChild(
+            container.appendChild(
                 row
             );
         }
     );
 
 
-    table.appendChild(
-        tbody
-    );
-
-
-    tableContainer.appendChild(
-        table
-    );
-
-
     recentRecords.appendChild(
-        tableContainer
+        container
     );
 }
 
 
 /* =====================================================
-   STATUS BADGE
+   REPORT HELPERS
 ===================================================== */
 
-function getStatusClass(status) {
+function formatDate(value) {
 
-    const base =
-        "inline-flex rounded-full px-2.5 py-1 text-xs font-semibold";
+    if (!value) {
 
-
-    if (
-        status ===
-        "Blocked Clearance"
-    ) {
-
-        return (
-            base +
-            " bg-red-50 text-red-700"
-        );
-    }
-
-
-    if (
-        status ===
-        "Unblocked Clearance"
-    ) {
-
-        return (
-            base +
-            " bg-blue-50 text-blue-700"
-        );
-    }
-
-
-    if (
-        status ===
-        "Rendered Do-Day"
-    ) {
-
-        return (
-            base +
-            " bg-green-50 text-green-700"
-        );
-    }
-
-
-    return (
-        base +
-        " bg-yellow-50 text-yellow-700"
-    );
-}
-
-
-/* =====================================================
-   DATE FORMATTING
-===================================================== */
-
-function formatDate(dateValue) {
-
-    if (!dateValue) {
         return "—";
     }
 
 
     const date =
-        new Date(
-            dateValue
-        );
+        new Date(value);
 
 
     return date.toLocaleDateString(
@@ -1709,21 +1455,16 @@ function formatDate(dateValue) {
 }
 
 
-/* =====================================================
-   TIME FORMATTING
-===================================================== */
+function formatTime(value) {
 
-function formatTime(dateValue) {
+    if (!value) {
 
-    if (!dateValue) {
         return "—";
     }
 
 
     const date =
-        new Date(
-            dateValue
-        );
+        new Date(value);
 
 
     return date.toLocaleTimeString(
@@ -1737,57 +1478,13 @@ function formatTime(dateValue) {
 
 
 /* =====================================================
-   ESCAPE HTML FOR REPORT
-===================================================== */
-
-function escapeHtml(value) {
-
-    if (
-        value === null ||
-        value === undefined
-    ) {
-
-        return "";
-    }
-
-
-    return String(value)
-        .replace(
-            /&/g,
-            "&amp;"
-        )
-        .replace(
-            /</g,
-            "&lt;"
-        )
-        .replace(
-            />/g,
-            "&gt;"
-        )
-        .replace(
-            /"/g,
-            "&quot;"
-        )
-        .replace(
-            /'/g,
-            "&#039;"
-        );
-}
-
-
-/* =====================================================
    GENERATE REPORT
 ===================================================== */
 
 function generateReport() {
 
-    /*
-        SECURITY OFFICE IS NOT
-        ALLOWED TO GENERATE REPORTS.
-    */
-
     if (
-        currentProfile &&
+        !currentProfile ||
         currentProfile.role ===
             "security_office"
     ) {
@@ -1800,53 +1497,16 @@ function generateReport() {
     }
 
 
-    if (
-        !currentProfile ||
-        (
-            currentProfile.role !==
-                "oswe_admin" &&
-            currentProfile.role !==
-                "oswe_staff"
-        )
-    ) {
-
-        alert(
-            "You do not have permission to generate reports."
-        );
-
-        return;
-    }
-
-
-    if (!reportMonth) {
-        return;
-    }
-
-
-    const selectedOption =
+    const option =
         reportMonth.options[
             reportMonth.selectedIndex
         ];
 
 
     const monthName =
-        selectedOption
-            ? selectedOption.textContent
+        option
+            ? option.textContent
             : "Selected Month";
-
-
-    /*
-        Client specifically requested that
-        generated reports exclude the
-        student's name.
-
-        Report includes:
-
-        - Violation Type
-        - College
-        - Date
-        - Time
-    */
 
 
     let rows = "";
@@ -1855,49 +1515,36 @@ function generateReport() {
     selectedMonthViolations.forEach(
         function (violation) {
 
-            let college =
-                "Unspecified";
-
-
-            if (
+            const college =
                 violation.students &&
                 violation.students.college
-            ) {
-
-                college =
-                    violation.students.college;
-            }
+                    ? violation.students.college
+                    : "Unspecified";
 
 
             rows +=
                 "<tr>" +
 
                     "<td>" +
-                        escapeHtml(
+                        (
                             violation.violation_type ||
                             "Unspecified"
                         ) +
                     "</td>" +
 
                     "<td>" +
-                        escapeHtml(
-                            college
+                        college +
+                    "</td>" +
+
+                    "<td>" +
+                        formatDate(
+                            violation.date_time
                         ) +
                     "</td>" +
 
                     "<td>" +
-                        escapeHtml(
-                            formatDate(
-                                violation.date_time
-                            )
-                        ) +
-                    "</td>" +
-
-                    "<td>" +
-                        escapeHtml(
-                            formatTime(
-                                violation.date_time
-                            )
+                        formatTime(
+                            violation.date_time
                         ) +
                     "</td>" +
 
@@ -1906,15 +1553,12 @@ function generateReport() {
     );
 
 
-    if (
-        selectedMonthViolations.length ===
-        0
-    ) {
+    if (!rows) {
 
         rows =
             "<tr>" +
-                "<td colspan=\"4\" class=\"empty\">" +
-                    "No violation records for this month." +
+                "<td colspan=\"4\" style=\"text-align:center;padding:20px;\">" +
+                    "No violation records." +
                 "</td>" +
             "</tr>";
     }
@@ -1937,117 +1581,42 @@ function generateReport() {
     }
 
 
-    const reportHtml =
+    reportWindow.document.write(
         "<!DOCTYPE html>" +
 
         "<html>" +
 
         "<head>" +
 
-            "<meta charset=\"UTF-8\">" +
-
-            "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">" +
-
-            "<title>CSUPAK Violation Report</title>" +
+            "<title>CSUPAK Report</title>" +
 
             "<style>" +
 
-                "body {" +
-                    "font-family: Arial, sans-serif;" +
-                    "margin: 40px;" +
-                    "color: #1f2937;" +
+                "body{" +
+                    "font-family:Arial,sans-serif;" +
+                    "margin:40px;" +
                 "}" +
 
-                ".header {" +
-                    "border-bottom: 3px solid #006B21;" +
-                    "padding-bottom: 18px;" +
-                    "margin-bottom: 25px;" +
+                "h1{" +
+                    "color:#006B21;" +
                 "}" +
 
-                ".system-name {" +
-                    "font-size: 26px;" +
-                    "font-weight: 800;" +
-                    "color: #006B21;" +
-                    "margin: 0;" +
+                "table{" +
+                    "width:100%;" +
+                    "border-collapse:collapse;" +
+                    "margin-top:25px;" +
                 "}" +
 
-                ".subtitle {" +
-                    "margin-top: 5px;" +
-                    "font-size: 12px;" +
-                    "color: #6b7280;" +
+                "th{" +
+                    "background:#006B21;" +
+                    "color:white;" +
+                    "padding:10px;" +
+                    "text-align:left;" +
                 "}" +
 
-                ".report-title {" +
-                    "margin-top: 24px;" +
-                    "font-size: 20px;" +
-                    "font-weight: 700;" +
-                "}" +
-
-                ".summary {" +
-                    "display: flex;" +
-                    "gap: 15px;" +
-                    "margin-bottom: 24px;" +
-                "}" +
-
-                ".summary-card {" +
-                    "border: 1px solid #e5e7eb;" +
-                    "border-radius: 8px;" +
-                    "padding: 14px 18px;" +
-                "}" +
-
-                ".summary-label {" +
-                    "font-size: 11px;" +
-                    "color: #6b7280;" +
-                    "margin-bottom: 4px;" +
-                "}" +
-
-                ".summary-value {" +
-                    "font-size: 22px;" +
-                    "font-weight: 700;" +
-                    "color: #006B21;" +
-                "}" +
-
-                "table {" +
-                    "width: 100%;" +
-                    "border-collapse: collapse;" +
-                    "margin-top: 15px;" +
-                "}" +
-
-                "th {" +
-                    "background: #006B21;" +
-                    "color: white;" +
-                    "text-align: left;" +
-                    "padding: 10px;" +
-                    "font-size: 12px;" +
-                "}" +
-
-                "td {" +
-                    "padding: 10px;" +
-                    "border-bottom: 1px solid #e5e7eb;" +
-                    "font-size: 12px;" +
-                "}" +
-
-                ".empty {" +
-                    "text-align: center;" +
-                    "padding: 25px;" +
-                    "color: #6b7280;" +
-                "}" +
-
-                ".footer {" +
-                    "margin-top: 35px;" +
-                    "font-size: 10px;" +
-                    "color: #9ca3af;" +
-                "}" +
-
-                "@media print {" +
-
-                    "body {" +
-                        "margin: 20px;" +
-                    "}" +
-
-                    ".no-print {" +
-                        "display: none;" +
-                    "}" +
+                "td{" +
+                    "padding:10px;" +
+                    "border-bottom:1px solid #ddd;" +
                 "}" +
 
             "</style>" +
@@ -2056,42 +1625,15 @@ function generateReport() {
 
         "<body>" +
 
-            "<div class=\"header\">" +
+            "<h1>CSUPAK</h1>" +
 
-                "<p class=\"system-name\">" +
-                    "CSUPAK" +
-                "</p>" +
+            "<h2>Violation Report - " +
+                monthName +
+            "</h2>" +
 
-                "<p class=\"subtitle\">" +
-                    "Student Violation Tracking System" +
-                "</p>" +
-
-                "<p class=\"report-title\">" +
-                    "Violation Report — " +
-                    escapeHtml(
-                        monthName
-                    ) +
-                "</p>" +
-
-            "</div>" +
-
-
-            "<div class=\"summary\">" +
-
-                "<div class=\"summary-card\">" +
-
-                    "<div class=\"summary-label\">" +
-                        "TOTAL VIOLATIONS" +
-                    "</div>" +
-
-                    "<div class=\"summary-value\">" +
-                        selectedMonthViolations.length +
-                    "</div>" +
-
-                "</div>" +
-
-            "</div>" +
-
+            "<p>Total Violations: " +
+                selectedMonthViolations.length +
+            "</p>" +
 
             "<table>" +
 
@@ -2099,21 +1641,10 @@ function generateReport() {
 
                     "<tr>" +
 
-                        "<th>" +
-                            "Violation Type" +
-                        "</th>" +
-
-                        "<th>" +
-                            "College" +
-                        "</th>" +
-
-                        "<th>" +
-                            "Date" +
-                        "</th>" +
-
-                        "<th>" +
-                            "Time" +
-                        "</th>" +
+                        "<th>Violation Type</th>" +
+                        "<th>College</th>" +
+                        "<th>Date</th>" +
+                        "<th>Time</th>" +
 
                     "</tr>" +
 
@@ -2127,58 +1658,31 @@ function generateReport() {
 
             "</table>" +
 
-
-            "<div class=\"footer\">" +
-
-                "Generated through CSUPAK. " +
-                "Student names are excluded from this report." +
-
-            "</div>" +
-
-
             "<script>" +
-
-                "window.onload = function () {" +
-
+                "window.onload=function(){" +
                     "window.print();" +
-
                 "};" +
-
             "</script>" +
 
         "</body>" +
 
-        "</html>";
-
-
-    reportWindow.document.open();
-
-    reportWindow.document.write(
-        reportHtml
+        "</html>"
     );
+
 
     reportWindow.document.close();
 }
 
 
 /* =====================================================
-   EVENT LISTENERS
+   EVENTS
 ===================================================== */
-
-
-/*
-    MONTH CHANGE
-*/
 
 if (reportMonth) {
 
     reportMonth.addEventListener(
         "change",
         function () {
-
-            /*
-                Remember selected month.
-            */
 
             localStorage.setItem(
                 "csupakReportMonth",
@@ -2192,48 +1696,32 @@ if (reportMonth) {
 }
 
 
-/*
-    GENERATE REPORT
-*/
-
 if (generateReportButton) {
 
-    generateReportButton
-        .addEventListener(
-            "click",
-            generateReport
-        );
+    generateReportButton.addEventListener(
+        "click",
+        generateReport
+    );
 }
 
 
-/*
-    CLOSE COLLEGE MODAL
-*/
-
 if (closeCollegeModal) {
 
-    closeCollegeModal
-        .addEventListener(
-            "click",
-            hideCollegeModal
-        );
+    closeCollegeModal.addEventListener(
+        "click",
+        hideCollegeModal
+    );
 }
 
 
 if (closeCollegeModalBottom) {
 
-    closeCollegeModalBottom
-        .addEventListener(
-            "click",
-            hideCollegeModal
-        );
+    closeCollegeModalBottom.addEventListener(
+        "click",
+        hideCollegeModal
+    );
 }
 
-
-/*
-    CLOSE MODAL WHEN CLICKING
-    DARK BACKGROUND
-*/
 
 if (collegeModal) {
 
@@ -2253,28 +1741,6 @@ if (collegeModal) {
 }
 
 
-/*
-    ESCAPE KEY
-*/
-
-document.addEventListener(
-    "keydown",
-    function (event) {
-
-        if (
-            event.key === "Escape"
-        ) {
-
-            hideCollegeModal();
-        }
-    }
-);
-
-
-/*
-    LOGOUT
-*/
-
 if (logoutButton) {
 
     logoutButton.addEventListener(
@@ -2288,49 +1754,41 @@ if (logoutButton) {
 
 
 /* =====================================================
-   RESTORE MONTH
+   MONTH
 ===================================================== */
 
 function restoreSelectedMonth() {
 
     if (!reportMonth) {
+
         return;
     }
 
 
-    const savedMonth =
+    const saved =
         localStorage.getItem(
             "csupakReportMonth"
         );
 
 
-    if (savedMonth) {
+    if (saved) {
 
         reportMonth.value =
-            savedMonth;
+            saved;
 
         return;
     }
 
 
-    /*
-        If no saved month exists,
-        use the current month.
-    */
-
-    const currentMonth =
-        new Date().getMonth() + 1;
-
-
     reportMonth.value =
         String(
-            currentMonth
+            new Date().getMonth() + 1
         );
 }
 
 
 /* =====================================================
-   INITIALIZE DASHBOARD
+   INITIALIZE
 ===================================================== */
 
 async function initializeDashboard() {
@@ -2343,6 +1801,7 @@ async function initializeDashboard() {
 
 
     if (!userLoaded) {
+
         return;
     }
 
@@ -2353,21 +1812,9 @@ async function initializeDashboard() {
 
     if (!semesterLoaded) {
 
-        if (totalViolations) {
-
-            totalViolations.textContent =
-                "0";
-        }
-
-
-        if (collegeCards) {
-
-            collegeCards.innerHTML =
-                "<div class=\"col-span-full rounded-xl bg-white/10 px-4 py-6 text-center text-sm text-green-100\">" +
-                    "No active semester found." +
-                "</div>";
-        }
-
+        console.warn(
+            "No active semester."
+        );
 
         return;
     }
@@ -2376,9 +1823,5 @@ async function initializeDashboard() {
     await loadViolations();
 }
 
-
-/* =====================================================
-   START
-===================================================== */
 
 initializeDashboard();

@@ -1,3 +1,12 @@
+/* =====================================================
+   CSUPAK - ADD COMPLAINT
+===================================================== */
+
+
+/* =====================================================
+   ELEMENTS
+===================================================== */
+
 const pageContent =
     document.getElementById("pageContent");
 
@@ -10,129 +19,218 @@ const userRole =
 const logoutButton =
     document.getElementById("logoutButton");
 
+
 const complaintsNav =
     document.getElementById("complaintsNav");
 
 const complaintTrackingNav =
-    document.getElementById("complaintTrackingNav");
+    document.getElementById(
+        "complaintTrackingNav"
+    );
 
 const interviewTrackingNav =
-    document.getElementById("interviewTrackingNav");
+    document.getElementById(
+        "interviewTrackingNav"
+    );
 
+
+/* =====================================================
+   COMPLAINT FORM
+===================================================== */
 
 const complaintForm =
-    document.getElementById("complaintForm");
+    document.getElementById(
+        "complaintForm"
+    );
 
 const whatHappened =
-    document.getElementById("whatHappened");
+    document.getElementById(
+        "whatHappened"
+    );
 
 const whoInvolved =
-    document.getElementById("whoInvolved");
+    document.getElementById(
+        "whoInvolved"
+    );
 
 const incidentDatetime =
-    document.getElementById("incidentDatetime");
+    document.getElementById(
+        "incidentDatetime"
+    );
 
 const locationInput =
-    document.getElementById("location");
+    document.getElementById(
+        "location"
+    );
 
 const howHappened =
-    document.getElementById("howHappened");
+    document.getElementById(
+        "howHappened"
+    );
 
 const otherDetails =
-    document.getElementById("otherDetails");
+    document.getElementById(
+        "otherDetails"
+    );
 
 const complainantName =
-    document.getElementById("complainantName");
+    document.getElementById(
+        "complainantName"
+    );
 
 const complainantStudentId =
-    document.getElementById("complainantStudentId");
+    document.getElementById(
+        "complainantStudentId"
+    );
 
 const complainantCourse =
-    document.getElementById("complainantCourse");
+    document.getElementById(
+        "complainantCourse"
+    );
 
 const complainantCellphone =
-    document.getElementById("complainantCellphone");
+    document.getElementById(
+        "complainantCellphone"
+    );
 
 const complainantResidenceTel =
-    document.getElementById("complainantResidenceTel");
+    document.getElementById(
+        "complainantResidenceTel"
+    );
 
 const complainantAddress =
-    document.getElementById("complainantAddress");
+    document.getElementById(
+        "complainantAddress"
+    );
 
 const dateReported =
-    document.getElementById("dateReported");
+    document.getElementById(
+        "dateReported"
+    );
 
 const receivedBy =
-    document.getElementById("receivedBy");
+    document.getElementById(
+        "receivedBy"
+    );
 
 const clearFormButton =
-    document.getElementById("clearFormButton");
+    document.getElementById(
+        "clearFormButton"
+    );
 
 const submitComplaintButton =
-    document.getElementById("submitComplaintButton");
+    document.getElementById(
+        "submitComplaintButton"
+    );
 
 const formMessage =
-    document.getElementById("formMessage");
+    document.getElementById(
+        "formMessage"
+    );
 
+
+/* =====================================================
+   CALL SLIP
+===================================================== */
 
 const callSlipOption =
-    document.getElementById("callSlipOption");
+    document.getElementById(
+        "callSlipOption"
+    );
 
 const addCallSlipCheckbox =
-    document.getElementById("addCallSlipCheckbox");
+    document.getElementById(
+        "addCallSlipCheckbox"
+    );
 
 const callSlipFields =
-    document.getElementById("callSlipFields");
+    document.getElementById(
+        "callSlipFields"
+    );
 
 const callStudentName =
-    document.getElementById("callStudentName");
+    document.getElementById(
+        "callStudentName"
+    );
 
 const callCourseYear =
-    document.getElementById("callCourseYear");
+    document.getElementById(
+        "callCourseYear"
+    );
 
 const callDate =
-    document.getElementById("callDate");
+    document.getElementById(
+        "callDate"
+    );
 
 const callNumber =
-    document.getElementById("callNumber");
+    document.getElementById(
+        "callNumber"
+    );
 
 const scheduleType =
-    document.getElementById("scheduleType");
+    document.getElementById(
+        "scheduleType"
+    );
 
 const scheduledDate =
-    document.getElementById("scheduledDate");
+    document.getElementById(
+        "scheduledDate"
+    );
 
 const scheduledTime =
-    document.getElementById("scheduledTime");
+    document.getElementById(
+        "scheduledTime"
+    );
 
 const callRemarks =
-    document.getElementById("callRemarks");
+    document.getElementById(
+        "callRemarks"
+    );
 
+
+/* =====================================================
+   GLOBAL DATA
+===================================================== */
 
 let currentProfile = null;
 
 
+/* =====================================================
+   ROLE DISPLAY
+===================================================== */
+
 function getRoleName(role) {
 
     if (role === "oswe_admin") {
+
         return "OSWE Administrator";
     }
 
+
     if (role === "oswe_staff") {
+
         return "OSWE Staff";
     }
+
 
     return "Authorized User";
 }
 
+
+/* =====================================================
+   TODAY
+===================================================== */
 
 function setToday() {
 
     const today =
         new Date();
 
+
     const year =
         today.getFullYear();
+
 
     const month =
         String(
@@ -142,6 +240,7 @@ function setToday() {
             "0"
         );
 
+
     const day =
         String(
             today.getDate()
@@ -149,6 +248,7 @@ function setToday() {
             2,
             "0"
         );
+
 
     const value =
         year +
@@ -158,18 +258,31 @@ function setToday() {
         day;
 
 
-    dateReported.value =
-        value;
+    if (dateReported) {
 
-    callDate.value =
-        value;
+        dateReported.value =
+            value;
+    }
+
+
+    if (callDate) {
+
+        callDate.value =
+            value;
+    }
 }
 
+
+/* =====================================================
+   LOAD PROFILE
+===================================================== */
 
 async function loadProfile() {
 
     const userResult =
-        await supabaseClient.auth.getUser();
+        await supabaseClient
+            .auth
+            .getUser();
 
 
     if (
@@ -200,6 +313,7 @@ async function loadProfile() {
     if (profileResult.error) {
 
         console.error(
+            "Unable to load profile:",
             profileResult.error
         );
 
@@ -210,6 +324,14 @@ async function loadProfile() {
     currentProfile =
         profileResult.data;
 
+
+    /*
+        ADD COMPLAINT ACCESS
+
+        OSWE Admin: YES
+        OSWE Staff: YES
+        Security: NO
+    */
 
     if (
         currentProfile.role !==
@@ -225,44 +347,62 @@ async function loadProfile() {
     }
 
 
-    userName.textContent =
-        currentProfile.full_name;
+    /*
+        USER INFORMATION
+    */
 
-    userRole.textContent =
-        getRoleName(
-            currentProfile.role
-        );
+    if (userName) {
 
-    receivedBy.value =
-        currentProfile.full_name;
-
-
-    complaintsNav.classList.remove(
-        "hidden"
-    );
-
-    complaintsNav.classList.add(
-        "flex"
-    );
+        userName.textContent =
+            currentProfile.full_name;
+    }
 
 
-    if (
-        currentProfile.role ===
-        "oswe_admin"
-    ) {
+    if (userRole) {
 
-        complaintTrackingNav
+        userRole.textContent =
+            getRoleName(
+                currentProfile.role
+            );
+    }
+
+
+    if (receivedBy) {
+
+        receivedBy.value =
+            currentProfile.full_name;
+    }
+
+
+    /*
+        ADD COMPLAINT
+
+        Both Staff and Admin
+    */
+
+    if (complaintsNav) {
+
+        complaintsNav
             .classList
             .remove(
                 "hidden"
             );
 
-        complaintTrackingNav
+        complaintsNav
             .classList
             .add(
                 "flex"
             );
+    }
 
+
+    /*
+        INTERVIEW TRACKING
+
+        Both Staff and Admin
+    */
+
+    if (interviewTrackingNav) {
 
         interviewTrackingNav
             .classList
@@ -275,7 +415,17 @@ async function loadProfile() {
             .add(
                 "flex"
             );
+    }
 
+
+    /*
+        ADD CALL SLIP WHILE
+        CREATING COMPLAINT
+
+        Both Staff and Admin
+    */
+
+    if (callSlipOption) {
 
         callSlipOption
             .classList
@@ -285,19 +435,82 @@ async function loadProfile() {
     }
 
 
-    pageContent.classList.remove(
-        "hidden"
-    );
+    /*
+        COMPLAINT TRACKING
+
+        ADMIN ONLY
+    */
+
+    if (
+        currentProfile.role ===
+        "oswe_admin"
+    ) {
+
+        if (complaintTrackingNav) {
+
+            complaintTrackingNav
+                .classList
+                .remove(
+                    "hidden"
+                );
+
+            complaintTrackingNav
+                .classList
+                .add(
+                    "flex"
+                );
+        }
+
+    } else {
+
+        if (complaintTrackingNav) {
+
+            complaintTrackingNav
+                .classList
+                .add(
+                    "hidden"
+                );
+
+            complaintTrackingNav
+                .classList
+                .remove(
+                    "flex"
+                );
+        }
+    }
+
+
+    /*
+        SHOW PAGE ONLY AFTER
+        ROLE HAS BEEN VERIFIED
+    */
+
+    if (pageContent) {
+
+        pageContent.classList.remove(
+            "hidden"
+        );
+    }
 
 
     return true;
 }
 
 
+/* =====================================================
+   MESSAGE
+===================================================== */
+
 function showMessage(
     message,
     success
 ) {
+
+    if (!formMessage) {
+
+        return;
+    }
+
 
     formMessage.className =
         "mt-6 rounded-xl px-4 py-3 text-sm";
@@ -324,9 +537,62 @@ function showMessage(
 }
 
 
+/* =====================================================
+   HIDE MESSAGE
+===================================================== */
+
+function hideMessage() {
+
+    if (!formMessage) {
+
+        return;
+    }
+
+
+    formMessage.classList.add(
+        "hidden"
+    );
+
+
+    formMessage.textContent =
+        "";
+}
+
+
+/* =====================================================
+   CREATE CALL SLIP
+===================================================== */
+
 async function createCallSlip(
     complaintId
 ) {
+
+    /*
+        Both OSWE Admin and OSWE Staff
+        are allowed to create Call Slips.
+    */
+
+    if (
+        currentProfile.role !==
+            "oswe_admin" &&
+        currentProfile.role !==
+            "oswe_staff"
+    ) {
+
+        return false;
+    }
+
+
+    if (!callDate.value) {
+
+        showMessage(
+            "Please enter the Call Slip date.",
+            false
+        );
+
+        return false;
+    }
+
 
     const result =
         await supabaseClient
@@ -340,15 +606,20 @@ async function createCallSlip(
                     callDate.value,
 
                 student_name:
-                    callStudentName.value.trim() ||
+                    callStudentName
+                        .value
+                        .trim() ||
                     null,
 
                 course_year:
-                    callCourseYear.value.trim() ||
+                    callCourseYear
+                        .value
+                        .trim() ||
                     null,
 
                 schedule_type:
-                    scheduleType.value,
+                    scheduleType.value ||
+                    null,
 
                 scheduled_date:
                     scheduledDate.value ||
@@ -364,7 +635,9 @@ async function createCallSlip(
                     ),
 
                 remarks:
-                    callRemarks.value.trim() ||
+                    callRemarks
+                        .value
+                        .trim() ||
                     null,
 
                 received_by:
@@ -378,6 +651,7 @@ async function createCallSlip(
     if (result.error) {
 
         console.error(
+            "Unable to create Call Slip:",
             result.error
         );
 
@@ -389,6 +663,10 @@ async function createCallSlip(
 }
 
 
+/* =====================================================
+   SAVE COMPLAINT
+===================================================== */
+
 async function saveComplaint(
     event
 ) {
@@ -396,12 +674,76 @@ async function saveComplaint(
     event.preventDefault();
 
 
+    if (!currentProfile) {
+
+        return;
+    }
+
+
+    if (
+        currentProfile.role !==
+            "oswe_admin" &&
+        currentProfile.role !==
+            "oswe_staff"
+    ) {
+
+        showMessage(
+            "You do not have permission to add complaints.",
+            false
+        );
+
+        return;
+    }
+
+
+    if (
+        !whatHappened
+            .value
+            .trim()
+    ) {
+
+        showMessage(
+            "Please enter what happened.",
+            false
+        );
+
+        whatHappened.focus();
+
+        return;
+    }
+
+
+    if (!dateReported.value) {
+
+        showMessage(
+            "Please enter the date reported.",
+            false
+        );
+
+        dateReported.focus();
+
+        return;
+    }
+
+
     submitComplaintButton.disabled =
         true;
+
 
     submitComplaintButton.textContent =
         "Saving...";
 
+
+    hideMessage();
+
+
+    /*
+        CREATE COMPLAINT THROUGH RPC
+
+        This returns the new complaint ID
+        without giving Staff access to
+        Complaint Tracking.
+    */
 
     const result =
         await supabaseClient.rpc(
@@ -409,10 +751,14 @@ async function saveComplaint(
             {
 
                 p_what_happened:
-                    whatHappened.value.trim(),
+                    whatHappened
+                        .value
+                        .trim(),
 
                 p_who_involved:
-                    whoInvolved.value.trim() ||
+                    whoInvolved
+                        .value
+                        .trim() ||
                     null,
 
                 p_incident_datetime:
@@ -420,39 +766,57 @@ async function saveComplaint(
                     null,
 
                 p_location:
-                    locationInput.value.trim() ||
+                    locationInput
+                        .value
+                        .trim() ||
                     null,
 
                 p_how_happened:
-                    howHappened.value.trim() ||
+                    howHappened
+                        .value
+                        .trim() ||
                     null,
 
                 p_other_details:
-                    otherDetails.value.trim() ||
+                    otherDetails
+                        .value
+                        .trim() ||
                     null,
 
                 p_complainant_name:
-                    complainantName.value.trim() ||
+                    complainantName
+                        .value
+                        .trim() ||
                     null,
 
                 p_complainant_course_year_major:
-                    complainantCourse.value.trim() ||
+                    complainantCourse
+                        .value
+                        .trim() ||
                     null,
 
                 p_complainant_student_id:
-                    complainantStudentId.value.trim() ||
+                    complainantStudentId
+                        .value
+                        .trim() ||
                     null,
 
                 p_complainant_address:
-                    complainantAddress.value.trim() ||
+                    complainantAddress
+                        .value
+                        .trim() ||
                     null,
 
                 p_complainant_residence_tel:
-                    complainantResidenceTel.value.trim() ||
+                    complainantResidenceTel
+                        .value
+                        .trim() ||
                     null,
 
                 p_complainant_cellphone:
-                    complainantCellphone.value.trim() ||
+                    complainantCellphone
+                        .value
+                        .trim() ||
                     null,
 
                 p_date_reported:
@@ -467,6 +831,7 @@ async function saveComplaint(
     if (result.error) {
 
         console.error(
+            "Unable to save complaint:",
             result.error
         );
 
@@ -480,6 +845,7 @@ async function saveComplaint(
         submitComplaintButton.disabled =
             false;
 
+
         submitComplaintButton.textContent =
             "Save Complaint";
 
@@ -492,9 +858,14 @@ async function saveComplaint(
         result.data;
 
 
+    /*
+        CREATE CALL SLIP IF SELECTED
+
+        Staff AND Admin can do this.
+    */
+
     if (
-        currentProfile.role ===
-            "oswe_admin" &&
+        addCallSlipCheckbox &&
         addCallSlipCheckbox.checked
     ) {
 
@@ -515,6 +886,7 @@ async function saveComplaint(
             submitComplaintButton.disabled =
                 false;
 
+
             submitComplaintButton.textContent =
                 "Save Complaint";
 
@@ -530,28 +902,43 @@ async function saveComplaint(
     );
 
 
+    /*
+        RESET FORM
+    */
+
     complaintForm.reset();
 
 
-    receivedBy.value =
-        currentProfile.full_name;
+    if (receivedBy) {
+
+        receivedBy.value =
+            currentProfile.full_name;
+    }
 
 
     setToday();
 
 
-    callSlipFields.classList.add(
-        "hidden"
-    );
+    if (callSlipFields) {
+
+        callSlipFields.classList.add(
+            "hidden"
+        );
+    }
 
 
     submitComplaintButton.disabled =
         false;
 
+
     submitComplaintButton.textContent =
         "Save Complaint";
 }
 
+
+/* =====================================================
+   CALL SLIP CHECKBOX
+===================================================== */
 
 if (addCallSlipCheckbox) {
 
@@ -578,6 +965,43 @@ if (addCallSlipCheckbox) {
 }
 
 
+/* =====================================================
+   CLEAR FORM
+===================================================== */
+
+function clearComplaintForm() {
+
+    complaintForm.reset();
+
+
+    if (receivedBy) {
+
+        receivedBy.value =
+            currentProfile
+                ? currentProfile.full_name
+                : "";
+    }
+
+
+    setToday();
+
+
+    if (callSlipFields) {
+
+        callSlipFields.classList.add(
+            "hidden"
+        );
+    }
+
+
+    hideMessage();
+}
+
+
+/* =====================================================
+   EVENTS
+===================================================== */
+
 if (complaintForm) {
 
     complaintForm.addEventListener(
@@ -591,23 +1015,7 @@ if (clearFormButton) {
 
     clearFormButton.addEventListener(
         "click",
-        function () {
-
-            complaintForm.reset();
-
-            receivedBy.value =
-                currentProfile.full_name;
-
-            setToday();
-
-            callSlipFields.classList.add(
-                "hidden"
-            );
-
-            formMessage.classList.add(
-                "hidden"
-            );
-        }
+        clearComplaintForm
     );
 }
 
@@ -624,9 +1032,14 @@ if (logoutButton) {
 }
 
 
+/* =====================================================
+   INITIALIZE
+===================================================== */
+
 async function initialize() {
 
     setToday();
+
 
     await loadProfile();
 }
