@@ -2,6 +2,7 @@
    CSUPAK DASHBOARD
 ===================================================== */
 
+console.log("CSUPAK DASHBOARD JS LOADED");
 
 /* =====================================================
    ELEMENTS
@@ -500,8 +501,12 @@ async function loadActiveSemester() {
 
 async function loadViolations() {
 
+    console.log(
+        "6. loadViolations() started"
+    );
+    
     if (!activeSemester) {
-
+        console.log("Dashboard stopped: active semester failed.");
         return;
     }
 
@@ -2222,14 +2227,25 @@ if (logoutButton) {
 
 async function initializeDashboard() {
 
+    console.log("1. Dashboard initialization started");
+
     restoreSelectedMonth();
 
 
     const userLoaded =
         await loadUserProfile();
 
+    console.log(
+        "2. User loaded:",
+        userLoaded
+    );
+
 
     if (!userLoaded) {
+
+        console.log(
+            "Dashboard stopped: user profile failed."
+        );
 
         return;
     }
@@ -2238,18 +2254,35 @@ async function initializeDashboard() {
     const semesterLoaded =
         await loadActiveSemester();
 
+    console.log(
+        "3. Semester loaded:",
+        semesterLoaded,
+        activeSemester
+    );
+
 
     if (!semesterLoaded) {
 
-        console.warn(
-            "No active semester."
+        console.log(
+            "Dashboard stopped: active semester failed."
         );
 
         return;
     }
 
 
+    console.log(
+        "4. About to load violations"
+    );
+
+
     await loadViolations();
+
+
+    console.log(
+        "5. Violations loading finished",
+        allViolations
+    );
 }
 
 
