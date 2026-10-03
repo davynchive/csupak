@@ -1725,8 +1725,10 @@ function generateReport() {
 
     if (
         !currentProfile ||
-        currentProfile.role ===
-            "security_office"
+        (
+            currentProfile.role !== "oswe_admin" &&
+            currentProfile.role !== "oswe_staff"
+        )
     ) {
 
         alert(
