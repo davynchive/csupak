@@ -110,6 +110,13 @@ let activeSemester = null;
 
 let allViolations = [];
 
+const VIOLATION_BATCH_SIZE = 500;
+const VIOLATION_PAGE_SIZE = 25;
+let currentViolationPage = 1;
+let violationsLoading = false;
+let violationsComplete = false;
+let violationsLoadError = null;
+
 
 /* =====================================================
    ROLE NAME
@@ -339,32 +346,22 @@ async function loadActiveSemester() {
 ===================================================== */
 
 async function loadViolations() {
+    if (violationsLoading) return;
+    violationsLoading = true;
+    violationsComplete = false;
+    violationsLoadError = null;
+    allViolations = [];
+    currentViolationPage = 1;
+    refreshButton.disabled = true;
+    renderViolations();
 
-    violationRecords.innerHTML =
-        "<div class=\"rounded-xl bg-gray-50 px-4 py-10 text-center\">" +
-            "<p class=\"text-sm text-gray-500\">" +
-                "Loading violation records..." +
-            "</p>" +
-        "</div>";
-
-
-    if (!activeSemester) {
-
-        violationRecords.innerHTML =
-            "<div class=\"rounded-xl bg-red-50 px-4 py-10 text-center\">" +
-                "<p class=\"text-sm text-red-600\">" +
-                    "No active semester is configured." +
-                "</p>" +
-            "</div>";
-
-
-        return;
-    }
-
-
-    const result =
-        await supabaseClient
-            .from("violations")
+    // Publish only when every batch has succeeded.
+    const records = [];
+    try {
+        if (!activeSemester) throw new Error("No active semester is configured.");
+        for (let offset = 0; ; offset += VIOLATION_BATCH_SIZE) {
+            const result = await supabaseClient
+                .from("violations")
             .select(
                 `
                 id,
@@ -400,45 +397,28 @@ async function loadViolations() {
                 )
                 `
             )
-            .eq(
-                "semester_id",
-                activeSemester.id
-            )
-            .order(
-                "date_time",
-                {
-                    ascending: false
-                }
-            );
-
-
-    if (result.error) {
-
-        console.error(
-            "Unable to load violations:",
-            result.error
-        );
-
-
-        violationRecords.innerHTML =
-            "<div class=\"rounded-xl bg-red-50 px-4 py-10 text-center\">" +
-                "<p class=\"text-sm text-red-600\">" +
-                    "Unable to load violation records." +
-                "</p>" +
-            "</div>";
-
-
-        return;
+                .eq("semester_id", activeSemester.id)
+                .order("date_time", { ascending: false })
+                .order("id", { ascending: false })
+                .range(offset, offset + VIOLATION_BATCH_SIZE - 1);
+            if (result.error) throw result.error;
+            if (!Array.isArray(result.data)) throw new Error("Invalid violation data returned.");
+            records.push(...result.data);
+            if (result.data.length < VIOLATION_BATCH_SIZE) break;
+        }
+        allViolations = records;
+        violationsComplete = true;
+        populateViolationTypeFilter();
+    } catch (error) {
+        console.error("Unable to load complete violation data:", error);
+        allViolations = [];
+        violationsComplete = false;
+        violationsLoadError = "Unable to load complete violation records. Use Refresh to try again.";
+    } finally {
+        violationsLoading = false;
+        refreshButton.disabled = false;
+        renderViolations();
     }
-
-
-    allViolations =
-        result.data || [];
-
-
-    populateViolationTypeFilter();
-
-    renderViolations();
 }
 
 
@@ -739,10 +719,29 @@ function getFilteredViolations() {
 ===================================================== */
 
 function renderViolations() {
+    if (!violationsComplete) {
+        recordCount.textContent = "Unavailable";
+        violationRecords.innerHTML = "";
+        const message = document.createElement("div");
+        message.className = violationsLoadError
+            ? "rounded-xl bg-red-50 px-4 py-10 text-center text-sm text-red-600"
+            : "rounded-xl bg-gray-50 px-4 py-10 text-center text-sm text-gray-500";
+        if (violationsLoadError) message.setAttribute("role", "alert");
+        message.textContent = violationsLoadError || (violationsLoading
+            ? "Loading violation records..." : "Violation records are not loaded.");
+        violationRecords.appendChild(message);
+        return;
+    }
+
 
     const records =
         getFilteredViolations();
 
+
+    const pageCount = Math.max(1, Math.ceil(records.length / VIOLATION_PAGE_SIZE));
+    currentViolationPage = Math.min(Math.max(1, currentViolationPage), pageCount);
+    const start = (currentViolationPage - 1) * VIOLATION_PAGE_SIZE;
+    const pageRecords = records.slice(start, start + VIOLATION_PAGE_SIZE);
 
     recordCount.textContent =
         records.length +
@@ -783,7 +782,7 @@ function renderViolations() {
         "space-y-4";
 
 
-    records.forEach(
+    pageRecords.forEach(
         function (violation) {
 
             container.appendChild(
@@ -798,12 +797,47 @@ function renderViolations() {
     violationRecords.appendChild(
         container
     );
+    renderViolationPagination(records.length, pageCount, start);
+
 }
 
 
 /* =====================================================
    CREATE VIOLATION CARD
 ===================================================== */
+
+function resetViolationPage() {
+    currentViolationPage = 1;
+    renderViolations();
+}
+
+function renderViolationPagination(total, pageCount, start) {
+    const controls = document.createElement("div");
+    controls.className = "mt-4 flex flex-wrap items-center justify-between gap-3";
+    controls.setAttribute("aria-label", "Violation pagination");
+    const label = document.createElement("p");
+    label.className = "text-sm text-gray-600";
+    label.textContent = "Showing " + (start + 1) + "-" + Math.min(start + VIOLATION_PAGE_SIZE, total)
+        + " of " + total + " records | Page " + currentViolationPage + " of " + pageCount;
+    controls.appendChild(label);
+    const buttons = document.createElement("div");
+    buttons.className = "flex gap-2";
+    [["Previous", -1], ["Next", 1]].forEach(function ([text, direction]) {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.textContent = text;
+        button.className = "rounded-lg border border-gray-300 px-4 py-2 text-sm disabled:opacity-50";
+        button.disabled = direction < 0 ? currentViolationPage === 1 : currentViolationPage === pageCount;
+        button.addEventListener("click", function () {
+            currentViolationPage += direction;
+            renderViolations();
+        });
+        buttons.appendChild(button);
+    });
+    controls.appendChild(buttons);
+    violationRecords.appendChild(controls);
+}
+
 
 function createViolationCard(
     violation
@@ -1498,6 +1532,8 @@ async function updateViolationStatus(
     }
 
 
+    renderViolations();
+
     return true;
 }
 
@@ -1677,19 +1713,19 @@ function formatDateTime(value) {
 
 searchInput.addEventListener(
     "input",
-    renderViolations
+    resetViolationPage
 );
 
 
 statusFilter.addEventListener(
     "change",
-    renderViolations
+    resetViolationPage
 );
 
 
 violationTypeFilter.addEventListener(
     "change",
-    renderViolations
+    resetViolationPage
 );
 
 
