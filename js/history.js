@@ -133,6 +133,91 @@ let currentProfile = null;
 let selectedStudent = null;
 
 let selectedStudentViolations = [];
+const HISTORY_BATCH_SIZE = 500;
+const HISTORY_PAGE_SIZE = 25;
+let completeSearchResults = [];
+let searchLoading = false;
+let searchComplete = false;
+let searchLoadError = null;
+let currentSearchPage = 1;
+let historyLoading = false;
+let historyComplete = false;
+let historyLoadError = null;
+let currentHistoryPage = 1;
+let historyRequestToken = 0;
+
+async function fetchCompleteRecords(buildQuery, isCurrent = () => true) {
+    const records = [];
+    const ids = new Set();
+    let expectedTotal = null;
+    let offset = 0;
+    do {
+        if (!isCurrent()) return null;
+        const result = await buildQuery().range(offset, offset + HISTORY_BATCH_SIZE - 1);
+        if (!isCurrent()) return null;
+        if (result.error) throw result.error;
+        if (!Array.isArray(result.data) || !Number.isSafeInteger(result.count) ||
+            result.count < 0 || result.data.length > HISTORY_BATCH_SIZE) {
+            throw new Error("Invalid batch returned.");
+        }
+        if (expectedTotal === null) expectedTotal = result.count;
+        if (result.count !== expectedTotal) throw new Error("Record count changed while loading.");
+        if (!result.data.length && offset < expectedTotal) throw new Error("Premature empty batch.");
+        for (const record of result.data) {
+            if (!record || typeof record !== "object" || Array.isArray(record) ||
+                !["string", "number"].includes(typeof record.id) || !String(record.id).trim() ||
+                (typeof record.id === "number" && !Number.isFinite(record.id))) {
+                throw new Error("Invalid record returned.");
+            }
+            const key = String(record.id);
+            if (ids.has(key)) throw new Error("Duplicate record returned.");
+            ids.add(key);
+            records.push(record);
+        }
+        offset += result.data.length;
+    } while (offset < expectedTotal);
+    if (records.length !== expectedTotal || ids.size !== expectedTotal) {
+        throw new Error("Incomplete dataset returned.");
+    }
+    return records;
+}
+
+function compareStudentIds(a, b) {
+    const left = String(a.id);
+    const right = String(b.id);
+    if (/^\d+$/.test(left) && /^\d+$/.test(right)) {
+        const x = BigInt(left), y = BigInt(right);
+        return x < y ? -1 : x > y ? 1 : 0;
+    }
+    return left < right ? -1 : left > right ? 1 : 0;
+}
+
+function appendHistoryPagination(container, total, page, onPage, unit) {
+    if (!total) return;
+    const pageCount = Math.ceil(total / HISTORY_PAGE_SIZE);
+    const controls = document.createElement("div");
+    controls.className = "mt-4 flex flex-wrap items-center justify-between gap-3";
+    controls.setAttribute("aria-label", unit + " pagination");
+    const label = document.createElement("p");
+    label.className = "text-sm text-gray-600";
+    label.textContent = "Showing " + ((page - 1) * HISTORY_PAGE_SIZE + 1) + "-" +
+        Math.min(page * HISTORY_PAGE_SIZE, total) + " of " + total + " " + unit +
+        " | Page " + page + " of " + pageCount;
+    controls.appendChild(label);
+    const buttons = document.createElement("div");
+    buttons.className = "flex gap-2";
+    [["Previous", -1], ["Next", 1]].forEach(function ([text, direction]) {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.textContent = text;
+        button.className = "rounded-lg border border-gray-300 px-4 py-2 text-sm disabled:opacity-50";
+        button.disabled = direction < 0 ? page === 1 : page === pageCount;
+        button.addEventListener("click", function () { onPage(page + direction); });
+        buttons.appendChild(button);
+    });
+    controls.appendChild(buttons);
+    container.appendChild(controls);
+}
 
 
 /* =====================================================
@@ -358,61 +443,37 @@ function hideSearchMessage() {
 ===================================================== */
 
 async function searchStudents() {
-
-    const searchValue =
-        studentSearch
-            .value
-            .trim();
-
-
+    if (searchLoading) return;
+    const searchValue = studentSearch.value.trim();
     hideSearchMessage();
-
-
-    searchResultsSection
-        .classList
-        .add(
-            "hidden"
-        );
-
-
-    studentHistorySection
-        .classList
-        .add(
-            "hidden"
-        );
-
-
+    searchResultsSection.classList.add("hidden");
+    studentHistorySection.classList.add("hidden");
+    // Invalidate any selected-student request before starting a new search.
+    historyRequestToken++;
+    selectedStudent = null;
+    selectedStudentViolations = [];
+    historyLoading = false;
+    historyComplete = false;
+    historyLoadError = null;
+    semesterFilter.disabled = true;
+    totalViolationCount.textContent = "Unavailable";
+    completeSearchResults = [];
+    searchComplete = false;
+    searchLoadError = null;
+    currentSearchPage = 1;
+    searchResults.innerHTML = "";
+    searchResultCount.textContent = "Unavailable";
     if (!searchValue) {
-
-        showSearchMessage(
-            "Enter a Student ID or student name."
-        );
-
-
+        showSearchMessage("Enter a Student ID or student name.");
         studentSearch.focus();
-
-
         return;
     }
-
-
-    searchButton.disabled =
-        true;
-
-
-    searchButton.textContent =
-        "Searching...";
-
-
-    /*
-        Search Student ID first.
-    */
-
-    const idResult =
-        await supabaseClient
-            .from("students")
-            .select(
-                `
+    searchLoading = true;
+    searchButton.disabled = true;
+    searchButton.textContent = "Searching...";
+    try {
+        const query = column => () => supabaseClient.from("students")
+            .select(`
                 id,
                 student_id,
                 student_name,
@@ -428,160 +489,32 @@ async function searchStudents() {
                         college_name
                     )
                 )
-                `
-            )
-            .ilike(
-                "student_id",
-                "%" +
-                searchValue +
-                "%"
-            )
-            .order(
-                "student_name",
-                {
-                    ascending: true
-                }
-            );
-
-
-    if (idResult.error) {
-
-        console.error(
-            "Unable to search students:",
-            idResult.error
-        );
-
-
-        showSearchMessage(
-            "Unable to search student records."
-        );
-
-
+                `, { count: "exact" })
+            .ilike(column, "%" + searchValue + "%")
+            .order("student_name", { ascending: true })
+            .order("id", { ascending: true });
+        const idMatches = await fetchCompleteRecords(query("student_id"));
+        const nameMatches = await fetchCompleteRecords(query("student_name"));
+        const merged = new Map();
+        for (const student of idMatches) merged.set(String(student.id), student);
+        for (const student of nameMatches) {
+            if (!merged.has(String(student.id))) merged.set(String(student.id), student);
+        }
+        const records = Array.from(merged.values());
+        records.sort((a, b) => String(a.student_name || "").localeCompare(String(b.student_name || "")) ||
+            compareStudentIds(a, b));
+        completeSearchResults = records;
+        searchComplete = true;
+    } catch (error) {
+        console.error("Unable to search complete student records:", error);
+        completeSearchResults = [];
+        searchComplete = false;
+        searchLoadError = "Unable to search complete student records. Search again to retry.";
+    } finally {
+        searchLoading = false;
         resetSearchButton();
-
-
-        return;
+        renderSearchResults();
     }
-
-
-    /*
-        Search name separately.
-
-        This avoids trying to construct
-        a complicated OR query while keeping
-        the code easy to follow.
-    */
-
-    const nameResult =
-        await supabaseClient
-            .from("students")
-            .select(
-                `
-                id,
-                student_id,
-                student_name,
-                course_id,
-                year_level,
-                courses (
-                    id,
-                    course_code,
-                    course_name,
-                    colleges (
-                        id,
-                        college_code,
-                        college_name
-                    )
-                )
-                `
-            )
-            .ilike(
-                "student_name",
-                "%" +
-                searchValue +
-                "%"
-            )
-            .order(
-                "student_name",
-                {
-                    ascending: true
-                }
-            );
-
-
-    if (nameResult.error) {
-
-        console.error(
-            "Unable to search by student name:",
-            nameResult.error
-        );
-
-
-        showSearchMessage(
-            "Unable to search student records."
-        );
-
-
-        resetSearchButton();
-
-
-        return;
-    }
-
-
-    const combined = [];
-
-
-    idResult.data.forEach(
-        function (student) {
-
-            combined.push(
-                student
-            );
-        }
-    );
-
-
-    nameResult.data.forEach(
-        function (student) {
-
-            const exists =
-                combined.some(
-                    function (existing) {
-
-                        return (
-                            existing.id ===
-                            student.id
-                        );
-                    }
-                );
-
-
-            if (!exists) {
-
-                combined.push(
-                    student
-                );
-            }
-        }
-    );
-
-
-    combined.sort(
-        function (a, b) {
-
-            return a.student_name.localeCompare(
-                b.student_name
-            );
-        }
-    );
-
-
-    renderSearchResults(
-        combined
-    );
-
-
-    resetSearchButton();
 }
 
 
@@ -604,9 +537,17 @@ function resetSearchButton() {
    RENDER SEARCH RESULTS
 ===================================================== */
 
-function renderSearchResults(
-    students
-) {
+function renderSearchResults() {
+    searchResults.innerHTML = "";
+    if (!searchComplete || searchLoading) {
+        searchResultCount.textContent = "Unavailable";
+        searchResultsSection.classList.add("hidden");
+        if (searchLoadError) showSearchMessage(searchLoadError);
+        return;
+    }
+    const students = completeSearchResults;
+    const pageCount = Math.max(1, Math.ceil(students.length / HISTORY_PAGE_SIZE));
+    currentSearchPage = Math.min(Math.max(1, currentSearchPage), pageCount);
 
     searchResults.innerHTML =
         "";
@@ -654,7 +595,7 @@ function renderSearchResults(
         "space-y-3";
 
 
-    students.forEach(
+    students.slice((currentSearchPage - 1) * HISTORY_PAGE_SIZE, currentSearchPage * HISTORY_PAGE_SIZE).forEach(
         function (student) {
 
             container.appendChild(
@@ -669,6 +610,10 @@ function renderSearchResults(
     searchResults.appendChild(
         container
     );
+    appendHistoryPagination(searchResults, students.length, currentSearchPage, function (page) {
+        currentSearchPage = page;
+        renderSearchResults();
+    }, "students");
 }
 
 
@@ -837,57 +782,25 @@ function getStudentInformationText(
    LOAD STUDENT HISTORY
 ===================================================== */
 
-async function loadStudentHistory(
-    student
-) {
-
-    selectedStudent =
-        student;
-
-
-    selectedStudentViolations =
-        [];
-
-
-    /*
-        Show student information immediately.
-    */
-
-    displayStudentSummary(
-        student
-    );
-
-
-    historyRecords.innerHTML =
-        "<div class=\"rounded-xl bg-gray-50 px-4 py-10 text-center\">" +
-            "<p class=\"text-sm text-gray-500\">" +
-                "Loading violation history..." +
-            "</p>" +
-        "</div>";
-
-
-    studentHistorySection
-        .classList
-        .remove(
-            "hidden"
-        );
-
-
-    /*
-        IMPORTANT:
-
-        There is deliberately NO active-semester
-        filter here.
-
-        Student History should include records
-        retained from previous semesters.
-    */
-
-    const result =
-        await supabaseClient
-            .from("violations")
-            .select(
-                `
+async function loadStudentHistory(student) {
+    const token = ++historyRequestToken;
+    const isCurrent = () => token === historyRequestToken;
+    selectedStudent = student;
+    selectedStudentViolations = [];
+    historyComplete = false;
+    historyLoading = true;
+    historyLoadError = null;
+    currentHistoryPage = 1;
+    semesterFilter.innerHTML = "";
+    semesterFilter.disabled = true;
+    displayStudentSummary(student);
+    totalViolationCount.textContent = "Unavailable";
+    studentHistorySection.classList.remove("hidden");
+    renderHistory();
+    try {
+        // Deliberately retrieve all semesters for this student.
+        const records = await fetchCompleteRecords(() => supabaseClient.from("violations")
+            .select(`
                 id,
                 violation_type,
                 location,
@@ -902,61 +815,33 @@ async function loadStudentHistory(
                     start_date,
                     end_date
                 )
-                `
-            )
-            .eq(
-                "student_id",
-                student.id
-            )
-            .order(
-                "date_time",
-                {
-                    ascending: false
-                }
-            );
-
-
-    if (result.error) {
-
-        console.error(
-            "Unable to load student history:",
-            result.error
-        );
-
-
-        historyRecords.innerHTML =
-            "<div class=\"rounded-xl bg-red-50 px-4 py-10 text-center\">" +
-                "<p class=\"text-sm text-red-600\">" +
-                    "Unable to load the student's violation history." +
-                "</p>" +
-            "</div>";
-
-
-        return;
+                `, { count: "exact" })
+            .eq("student_id", student.id)
+            .order("date_time", { ascending: false })
+            .order("id", { ascending: false }), isCurrent);
+        if (!isCurrent()) return;
+        selectedStudentViolations = records;
+        historyComplete = true;
+        totalViolationCount.textContent = records.length;
+        populateSemesterFilter();
+        semesterFilter.value = "";
+        semesterFilter.disabled = false;
+    } catch (error) {
+        if (!isCurrent()) return;
+        console.error("Unable to load complete student history:", error);
+        selectedStudentViolations = [];
+        historyComplete = false;
+        historyLoadError = "Unable to load complete violation history. Select the student again to retry.";
+        totalViolationCount.textContent = "Unavailable";
+    } finally {
+        if (isCurrent()) {
+            historyLoading = false;
+            renderHistory();
+        }
     }
-
-
-    selectedStudentViolations =
-        result.data || [];
-
-
-    totalViolationCount.textContent =
-        selectedStudentViolations.length;
-
-
-    populateSemesterFilter();
-
-
-    renderHistory();
-
-
-    studentHistorySection.scrollIntoView({
-        behavior:
-            "smooth",
-
-        block:
-            "start"
-    });
+    if (isCurrent() && historyComplete) {
+        studentHistorySection.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
 }
 
 
@@ -1168,9 +1053,24 @@ function getFilteredHistory() {
 ===================================================== */
 
 function renderHistory() {
+    if (historyLoading || !historyComplete) {
+        historyRecords.innerHTML = "";
+        const message = document.createElement("p");
+        message.className = historyLoadError
+            ? "rounded-xl bg-red-50 px-4 py-10 text-center text-sm text-red-600"
+            : "rounded-xl bg-gray-50 px-4 py-10 text-center text-sm text-gray-500";
+        message.textContent = historyLoadError || (historyLoading
+            ? "Loading violation history..." : "Violation history is not loaded.");
+        if (historyLoadError) message.setAttribute("role", "alert");
+        historyRecords.appendChild(message);
+        return;
+    }
 
     const violations =
         getFilteredHistory();
+
+    const pageCount = Math.max(1, Math.ceil(violations.length / HISTORY_PAGE_SIZE));
+    currentHistoryPage = Math.min(Math.max(1, currentHistoryPage), pageCount);
 
 
     historyRecords.innerHTML =
@@ -1203,7 +1103,7 @@ function renderHistory() {
         "space-y-4";
 
 
-    violations.forEach(
+    violations.slice((currentHistoryPage - 1) * HISTORY_PAGE_SIZE, currentHistoryPage * HISTORY_PAGE_SIZE).forEach(
         function (violation) {
 
             container.appendChild(
@@ -1218,6 +1118,10 @@ function renderHistory() {
     historyRecords.appendChild(
         container
     );
+    appendHistoryPagination(historyRecords, violations.length, currentHistoryPage, function (page) {
+        currentHistoryPage = page;
+        renderHistory();
+    }, "records");
 }
 
 
@@ -1648,7 +1552,10 @@ studentSearch.addEventListener(
 
 semesterFilter.addEventListener(
     "change",
-    renderHistory
+    function () {
+        currentHistoryPage = 1;
+        renderHistory();
+    }
 );
 
 
