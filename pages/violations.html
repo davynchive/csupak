@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>CSUPAK | Violation Records</title>
+
+    <link
+        rel="stylesheet"
+        href="../src/output.css"
+    >
+</head>
+
+
+<body class="min-h-screen bg-[#F4F5F3] text-[#1F2933]">
+
+
+    <!-- =====================================================
+         SIDEBAR
+    ====================================================== -->
+
+    <aside
+        class="fixed left-0 top-0 flex h-screen w-56 flex-col bg-[#006B21] text-white"
+    >
+
+        <div class="border-b border-white/15 px-6 py-5">
+
+            <h1 class="text-2xl font-extrabold tracking-tight">
+                CSUPAK
+            </h1>
+
+            <p class="mt-0.5 text-[9px] text-green-100">
+                Student Violation Tracking System
+            </p>
+
+        </div>
+
+
+        <nav class="flex-1 px-3 py-5">
+
+            <a
+                href="dashboard.html"
+                class="mb-1 flex items-center rounded-lg px-4 py-2.5 text-sm font-medium text-green-50 hover:bg-white/10"
+            >
+                Dashboard
+            </a>
+
+
+            <a
+                href="record-violation.html"
+                class="mb-1 flex items-center rounded-lg px-4 py-2.5 text-sm font-medium text-green-50 hover:bg-white/10"
+            >
+                Record Violation
+            </a>
+
+
+            <a
+                href="violations.html"
+                class="mb-1 flex items-center rounded-lg bg-white/15 px-4 py-2.5 text-sm font-semibold"
+            >
+                Violations
+            </a>
+
+
+            <a
+                href="history.html"
+                class="mb-1 flex items-center rounded-lg px-4 py-2.5 text-sm font-medium text-green-50 hover:bg-white/10"
+            >
+                History
+            </a>
+
+
+            <a
+                id="complaintsNav"
+                href="complaints.html"
+                class="mb-1 hidden items-center rounded-lg px-4 py-2.5 text-sm font-medium text-green-50 hover:bg-white/10"
+            >
+                Add Complaint
+            </a>
+
+
+            <a
+                id="complaintTrackingNav"
+                href="complaint-tracking.html"
+                class="mb-1 hidden items-center rounded-lg px-4 py-2.5 text-sm font-medium text-green-50 hover:bg-white/10"
+            >
+                Complaint Tracking
+            </a>
+
+
+            <a
+                id="interviewTrackingNav"
+                href="call-slips.html"
+                class="mb-1 hidden items-center rounded-lg px-4 py-2.5 text-sm font-medium text-green-50 hover:bg-white/10"
+            >
+                Interview Tracking
+            </a>
+
+
+            <div class="my-5 border-t border-white/15"></div>
+
+
+            <a
+                href="#"
+                class="flex items-center rounded-lg px-4 py-2.5 text-sm font-medium text-green-50 hover:bg-white/10"
+            >
+                Settings
+            </a>
+
+        </nav>
+
+
+        <div class="border-t border-white/15 p-3">
+
+            <button
+                id="logoutButton"
+                type="button"
+                class="w-full rounded-lg px-4 py-2.5 text-left text-sm font-medium text-green-50 hover:bg-white/10"
+            >
+                Logout
+            </button>
+
+        </div>
+
+    </aside>
+
+
+
+    <!-- =====================================================
+         MAIN
+    ====================================================== -->
+
+    <main class="ml-56 min-h-screen">
+
+
+        <!-- HEADER -->
+        <header
+            class="border-b border-gray-200 bg-white"
+        >
+
+            <div
+                class="flex items-center justify-between px-8 py-5"
+            >
+
+                <div>
+
+                    <h2
+                        class="text-2xl font-bold tracking-tight text-[#006B21]"
+                    >
+                        Violation Records
+                    </h2>
+
+                    <p
+                        class="mt-1 text-sm text-gray-500"
+                    >
+                        View and track recorded student violations.
+                    </p>
+
+                </div>
+
+
+                <div class="text-right">
+
+                    <p
+                        id="userName"
+                        class="text-sm font-semibold text-gray-800"
+                    >
+                        Loading...
+                    </p>
+
+                    <p
+                        id="userRole"
+                        class="mt-0.5 text-xs text-gray-400"
+                    >
+                        Loading role...
+                    </p>
+
+                </div>
+
+            </div>
+
+        </header>
+
+
+
+        <!-- =====================================================
+             CONTENT
+        ====================================================== -->
+
+        <div
+            id="pageContent"
+            class="hidden px-8 py-7"
+        >
+
+
+            <!-- =================================================
+                 FILTERS
+            ================================================== -->
+
+            <section
+                class="mb-6 rounded-2xl bg-white p-5 shadow-sm"
+            >
+
+                <div
+                    class="grid grid-cols-1 gap-4 lg:grid-cols-4"
+                >
+
+
+                    <!-- SEARCH -->
+                    <div class="lg:col-span-2">
+
+                        <label
+                            for="searchInput"
+                            class="mb-2 block text-xs font-semibold uppercase tracking-wide text-gray-500"
+                        >
+                            Search
+                        </label>
+
+                        <input
+                            id="searchInput"
+                            type="text"
+                            placeholder="Student ID, name, course, violation..."
+                            class="w-full rounded-xl border border-gray-300 px-4 py-2.5 text-sm outline-none focus:border-[#006B21] focus:ring-2 focus:ring-green-100"
+                        >
+
+                    </div>
+
+
+
+                    <!-- STATUS -->
+                    <div>
+
+                        <label
+                            for="statusFilter"
+                            class="mb-2 block text-xs font-semibold uppercase tracking-wide text-gray-500"
+                        >
+                            Status
+                        </label>
+
+                        <select
+                            id="statusFilter"
+                            class="w-full rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm outline-none focus:border-[#006B21] focus:ring-2 focus:ring-green-100"
+                        >
+
+                            <option value="">
+                                All Statuses
+                            </option>
+
+                            <option value="Pending">
+                                Pending
+                            </option>
+
+                            <option value="Blocked Clearance">
+                                Blocked Clearance
+                            </option>
+
+                            <option value="Unblocked Clearance">
+                                Unblocked Clearance
+                            </option>
+
+                            <option value="Rendered Do-Day">
+                                Rendered Do-Day
+                            </option>
+
+                        </select>
+
+                    </div>
+
+
+
+                    <!-- VIOLATION TYPE -->
+                    <div>
+
+                        <label
+                            for="violationTypeFilter"
+                            class="mb-2 block text-xs font-semibold uppercase tracking-wide text-gray-500"
+                        >
+                            Violation Type
+                        </label>
+
+                        <select
+                            id="violationTypeFilter"
+                            class="w-full rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm outline-none focus:border-[#006B21] focus:ring-2 focus:ring-green-100"
+                        >
+
+                            <option value="">
+                                All Violation Types
+                            </option>
+
+                        </select>
+
+                    </div>
+
+                </div>
+
+            </section>
+
+
+
+            <!-- =================================================
+                 RECORDS
+            ================================================== -->
+
+            <section
+                class="overflow-hidden rounded-2xl bg-white shadow-sm"
+            >
+
+                <div
+                    class="flex items-center justify-between border-b border-gray-100 px-6 py-5"
+                >
+
+                    <div>
+
+                        <h3
+                            class="text-lg font-bold text-gray-900"
+                        >
+                            Recorded Violations
+                        </h3>
+
+                        <p
+                            id="recordCount"
+                            class="mt-1 text-sm text-gray-500"
+                        >
+                            Loading records...
+                        </p>
+
+                    </div>
+
+
+                    <button
+                        id="refreshButton"
+                        type="button"
+                        class="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-600 hover:bg-gray-50"
+                    >
+                        Refresh
+                    </button>
+
+                </div>
+
+
+                <div
+                    id="violationRecords"
+                    class="p-6"
+                >
+
+                    <div
+                        class="rounded-xl bg-gray-50 px-4 py-10 text-center"
+                    >
+
+                        <p
+                            class="text-sm text-gray-500"
+                        >
+                            Loading violation records...
+                        </p>
+
+                    </div>
+
+                </div>
+
+            </section>
+
+        </div>
+
+    </main>
+
+
+
+    <!-- =====================================================
+         PHOTO MODAL
+    ====================================================== -->
+
+    <div
+        id="photoModal"
+        class="fixed inset-0 z-50 hidden items-center justify-center bg-black/70 p-4"
+    >
+
+        <div
+            class="w-full max-w-3xl overflow-hidden rounded-2xl bg-white shadow-2xl"
+        >
+
+            <div
+                class="flex items-center justify-between border-b border-gray-100 px-6 py-4"
+            >
+
+                <div>
+
+                    <p
+                        class="text-xs font-semibold uppercase tracking-wide text-[#006B21]"
+                    >
+                        Violation Evidence
+                    </p>
+
+                    <p
+                        id="photoModalName"
+                        class="mt-1 text-sm font-semibold text-gray-800"
+                    >
+                        Photo
+                    </p>
+
+                </div>
+
+
+                <button
+                    id="closePhotoModal"
+                    type="button"
+                    class="text-2xl text-gray-400 hover:text-gray-700"
+                >
+                    ×
+                </button>
+
+            </div>
+
+
+            <div
+                class="flex justify-center bg-gray-100 p-5"
+            >
+
+                <img
+                    id="photoModalImage"
+                    src=""
+                    alt="Violation evidence"
+                    class="max-h-[70vh] max-w-full rounded-lg object-contain"
+                >
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+
+    <!-- =====================================================
+         SCRIPTS
+    ====================================================== -->
+
+    <script
+        src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"
+    ></script>
+
+    <script src="../js/supabase.js"></script>
+    <script src="../js/auth.js"></script>
+    <script src="../js/violations.js"></script>
+
+</body>
+
+</html>
