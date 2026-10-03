@@ -1,0 +1,756 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>CSUPAK | Add Complaint</title>
+
+    <link
+        rel="stylesheet"
+        href="../src/output.css"
+    >
+</head>
+
+
+<body class="min-h-screen bg-[#F4F5F3] text-[#1F2933]">
+
+
+    <!-- SIDEBAR -->
+    <aside
+        class="fixed left-0 top-0 flex h-screen w-56 flex-col bg-[#006B21] text-white"
+    >
+
+        <div class="border-b border-white/15 px-6 py-5">
+
+            <h1 class="text-2xl font-extrabold tracking-tight">
+                CSUPAK
+            </h1>
+
+            <p class="mt-0.5 text-[9px] text-green-100">
+                Student Violation Tracking System
+            </p>
+
+        </div>
+
+
+        <nav class="flex-1 px-3 py-5">
+
+            <a
+                href="dashboard.html"
+                class="mb-1 flex items-center rounded-lg px-4 py-2.5 text-sm font-medium text-green-50 hover:bg-white/10"
+            >
+                Dashboard
+            </a>
+
+
+            <a
+                href="violations.html"
+                class="mb-1 flex items-center rounded-lg px-4 py-2.5 text-sm font-medium text-green-50 hover:bg-white/10"
+            >
+                Violations
+            </a>
+
+
+            <a
+                href="history.html"
+                class="mb-1 flex items-center rounded-lg px-4 py-2.5 text-sm font-medium text-green-50 hover:bg-white/10"
+            >
+                History
+            </a>
+
+
+            <a
+                id="complaintsNav"
+                href="complaints.html"
+                class="mb-1 hidden items-center rounded-lg bg-white/15 px-4 py-2.5 text-sm font-semibold"
+            >
+                Add Complaint
+            </a>
+
+
+            <a
+                id="complaintTrackingNav"
+                href="complaint-tracking.html"
+                class="mb-1 hidden items-center rounded-lg px-4 py-2.5 text-sm font-medium text-green-50 hover:bg-white/10"
+            >
+                Complaint Tracking
+            </a>
+
+
+            <a
+                id="interviewTrackingNav"
+                href="call-slips.html"
+                class="mb-1 hidden items-center rounded-lg px-4 py-2.5 text-sm font-medium text-green-50 hover:bg-white/10"
+            >
+                Interview Tracking
+            </a>
+
+
+            <div class="my-5 border-t border-white/15"></div>
+
+
+            <a
+                href="#"
+                class="flex items-center rounded-lg px-4 py-2.5 text-sm font-medium text-green-50 hover:bg-white/10"
+            >
+                Settings
+            </a>
+
+        </nav>
+
+
+        <div class="border-t border-white/15 p-3">
+
+            <button
+                id="logoutButton"
+                type="button"
+                class="w-full rounded-lg px-4 py-2.5 text-left text-sm font-medium text-green-50 hover:bg-white/10"
+            >
+                Logout
+            </button>
+
+        </div>
+
+    </aside>
+
+
+
+    <!-- MAIN -->
+    <main class="ml-56 min-h-screen">
+
+
+        <header class="border-b border-gray-200 bg-white">
+
+            <div class="flex items-center justify-between px-8 py-5">
+
+                <div>
+
+                    <h2 class="text-2xl font-bold tracking-tight text-[#006B21]">
+                        Add Complaint
+                    </h2>
+
+                    <p class="mt-1 text-sm text-gray-500">
+                        Record complaint information received by OSWE.
+                    </p>
+
+                </div>
+
+
+                <div class="text-right">
+
+                    <p
+                        id="userName"
+                        class="text-sm font-semibold text-gray-800"
+                    >
+                        Loading...
+                    </p>
+
+                    <p
+                        id="userRole"
+                        class="text-xs text-gray-400"
+                    >
+                    </p>
+
+                </div>
+
+            </div>
+
+        </header>
+
+
+
+        <div
+            id="pageContent"
+            class="hidden px-8 py-7"
+        >
+
+
+            <form
+                id="complaintForm"
+                class="rounded-2xl bg-white shadow-sm"
+            >
+
+
+                <!-- INCIDENT -->
+                <div class="border-b border-gray-100 px-6 py-5">
+
+                    <h3 class="text-lg font-bold text-gray-900">
+                        Complaint Information
+                    </h3>
+
+                    <p class="mt-1 text-sm text-gray-500">
+                        Enter the information from the Complaint Form.
+                    </p>
+
+                </div>
+
+
+                <div class="p-6">
+
+
+                    <div class="grid grid-cols-1 gap-5 md:grid-cols-2">
+
+
+                        <div class="md:col-span-2">
+
+                            <label
+                                for="whatHappened"
+                                class="mb-2 block text-sm font-semibold text-gray-700"
+                            >
+                                What Happened *
+                            </label>
+
+                            <textarea
+                                id="whatHappened"
+                                rows="4"
+                                required
+                                class="w-full resize-none rounded-xl border border-gray-300 px-4 py-3 text-sm outline-none focus:border-[#006B21] focus:ring-2 focus:ring-green-100"
+                            ></textarea>
+
+                        </div>
+
+
+                        <div>
+
+                            <label
+                                for="whoInvolved"
+                                class="mb-2 block text-sm font-semibold text-gray-700"
+                            >
+                                Who Was Involved
+                            </label>
+
+                            <input
+                                id="whoInvolved"
+                                type="text"
+                                class="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm outline-none focus:border-[#006B21] focus:ring-2 focus:ring-green-100"
+                            >
+
+                        </div>
+
+
+                        <div>
+
+                            <label
+                                for="incidentDatetime"
+                                class="mb-2 block text-sm font-semibold text-gray-700"
+                            >
+                                When
+                            </label>
+
+                            <input
+                                id="incidentDatetime"
+                                type="datetime-local"
+                                class="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm outline-none focus:border-[#006B21] focus:ring-2 focus:ring-green-100"
+                            >
+
+                        </div>
+
+
+                        <div class="md:col-span-2">
+
+                            <label
+                                for="location"
+                                class="mb-2 block text-sm font-semibold text-gray-700"
+                            >
+                                Where
+                            </label>
+
+                            <input
+                                id="location"
+                                type="text"
+                                class="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm outline-none focus:border-[#006B21] focus:ring-2 focus:ring-green-100"
+                            >
+
+                        </div>
+
+
+                        <div class="md:col-span-2">
+
+                            <label
+                                for="howHappened"
+                                class="mb-2 block text-sm font-semibold text-gray-700"
+                            >
+                                How
+                            </label>
+
+                            <textarea
+                                id="howHappened"
+                                rows="4"
+                                class="w-full resize-none rounded-xl border border-gray-300 px-4 py-3 text-sm outline-none focus:border-[#006B21] focus:ring-2 focus:ring-green-100"
+                            ></textarea>
+
+                        </div>
+
+
+                        <div class="md:col-span-2">
+
+                            <label
+                                for="otherDetails"
+                                class="mb-2 block text-sm font-semibold text-gray-700"
+                            >
+                                Other Details
+                            </label>
+
+                            <textarea
+                                id="otherDetails"
+                                rows="3"
+                                class="w-full resize-none rounded-xl border border-gray-300 px-4 py-3 text-sm outline-none focus:border-[#006B21] focus:ring-2 focus:ring-green-100"
+                            ></textarea>
+
+                        </div>
+
+                    </div>
+
+
+
+                    <!-- COMPLAINANT -->
+                    <div class="mt-8 border-t border-gray-100 pt-7">
+
+                        <h4 class="mb-5 text-sm font-bold uppercase tracking-wide text-[#006B21]">
+                            Complainant Information
+                        </h4>
+
+
+                        <div class="grid grid-cols-1 gap-5 md:grid-cols-2">
+
+
+                            <div>
+
+                                <label
+                                    for="complainantName"
+                                    class="mb-2 block text-sm font-semibold text-gray-700"
+                                >
+                                    Name
+                                </label>
+
+                                <input
+                                    id="complainantName"
+                                    type="text"
+                                    class="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm outline-none focus:border-[#006B21] focus:ring-2 focus:ring-green-100"
+                                >
+
+                            </div>
+
+
+                            <div>
+
+                                <label
+                                    for="complainantStudentId"
+                                    class="mb-2 block text-sm font-semibold text-gray-700"
+                                >
+                                    Student ID No.
+                                </label>
+
+                                <input
+                                    id="complainantStudentId"
+                                    type="text"
+                                    class="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm outline-none focus:border-[#006B21] focus:ring-2 focus:ring-green-100"
+                                >
+
+                            </div>
+
+
+                            <div>
+
+                                <label
+                                    for="complainantCourse"
+                                    class="mb-2 block text-sm font-semibold text-gray-700"
+                                >
+                                    Course / Year / Major
+                                </label>
+
+                                <input
+                                    id="complainantCourse"
+                                    type="text"
+                                    class="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm outline-none focus:border-[#006B21] focus:ring-2 focus:ring-green-100"
+                                >
+
+                            </div>
+
+
+                            <div>
+
+                                <label
+                                    for="complainantCellphone"
+                                    class="mb-2 block text-sm font-semibold text-gray-700"
+                                >
+                                    Cellphone No.
+                                </label>
+
+                                <input
+                                    id="complainantCellphone"
+                                    type="text"
+                                    class="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm outline-none focus:border-[#006B21] focus:ring-2 focus:ring-green-100"
+                                >
+
+                            </div>
+
+
+                            <div>
+
+                                <label
+                                    for="complainantResidenceTel"
+                                    class="mb-2 block text-sm font-semibold text-gray-700"
+                                >
+                                    Residence Tel. No.
+                                </label>
+
+                                <input
+                                    id="complainantResidenceTel"
+                                    type="text"
+                                    class="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm outline-none focus:border-[#006B21] focus:ring-2 focus:ring-green-100"
+                                >
+
+                            </div>
+
+
+                            <div>
+
+                                <label
+                                    for="complainantAddress"
+                                    class="mb-2 block text-sm font-semibold text-gray-700"
+                                >
+                                    Address
+                                </label>
+
+                                <input
+                                    id="complainantAddress"
+                                    type="text"
+                                    class="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm outline-none focus:border-[#006B21] focus:ring-2 focus:ring-green-100"
+                                >
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+
+
+                    <!-- OFFICE -->
+                    <div class="mt-8 border-t border-gray-100 pt-7">
+
+                        <h4 class="mb-5 text-sm font-bold uppercase tracking-wide text-[#006B21]">
+                            Office Information
+                        </h4>
+
+
+                        <div class="grid grid-cols-1 gap-5 md:grid-cols-2">
+
+
+                            <div>
+
+                                <label
+                                    for="dateReported"
+                                    class="mb-2 block text-sm font-semibold text-gray-700"
+                                >
+                                    Date Reported *
+                                </label>
+
+                                <input
+                                    id="dateReported"
+                                    type="date"
+                                    required
+                                    class="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm outline-none focus:border-[#006B21] focus:ring-2 focus:ring-green-100"
+                                >
+
+                            </div>
+
+
+                            <div>
+
+                                <label
+                                    for="receivedBy"
+                                    class="mb-2 block text-sm font-semibold text-gray-700"
+                                >
+                                    Received By
+                                </label>
+
+                                <input
+                                    id="receivedBy"
+                                    type="text"
+                                    readonly
+                                    class="w-full rounded-xl border border-gray-300 bg-gray-50 px-4 py-3 text-sm text-gray-600"
+                                >
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+
+
+                    <!-- CALL SLIP OPTION -->
+                    <div
+                        id="callSlipOption"
+                        class="mt-8 hidden border-t border-gray-100 pt-7"
+                    >
+
+                        <label
+                            class="flex cursor-pointer items-start gap-3 rounded-xl bg-[#F3F7F3] p-4"
+                        >
+
+                            <input
+                                id="addCallSlipCheckbox"
+                                type="checkbox"
+                                class="mt-1 h-4 w-4"
+                            >
+
+                            <div>
+
+                                <p class="text-sm font-semibold text-gray-900">
+                                    Add Call Slip
+                                </p>
+
+                                <p class="mt-1 text-xs text-gray-500">
+                                    Create a Call Slip immediately after saving this complaint.
+                                </p>
+
+                            </div>
+
+                        </label>
+
+
+                        <div
+                            id="callSlipFields"
+                            class="mt-5 hidden rounded-xl border border-gray-200 p-5"
+                        >
+
+
+                            <div class="grid grid-cols-1 gap-5 md:grid-cols-2">
+
+
+                                <div>
+
+                                    <label
+                                        for="callStudentName"
+                                        class="mb-2 block text-sm font-semibold text-gray-700"
+                                    >
+                                        Student Name
+                                    </label>
+
+                                    <input
+                                        id="callStudentName"
+                                        type="text"
+                                        class="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm"
+                                    >
+
+                                </div>
+
+
+                                <div>
+
+                                    <label
+                                        for="callCourseYear"
+                                        class="mb-2 block text-sm font-semibold text-gray-700"
+                                    >
+                                        Course / Year
+                                    </label>
+
+                                    <input
+                                        id="callCourseYear"
+                                        type="text"
+                                        class="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm"
+                                    >
+
+                                </div>
+
+
+                                <div>
+
+                                    <label
+                                        for="callDate"
+                                        class="mb-2 block text-sm font-semibold text-gray-700"
+                                    >
+                                        Call Slip Date
+                                    </label>
+
+                                    <input
+                                        id="callDate"
+                                        type="date"
+                                        class="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm"
+                                    >
+
+                                </div>
+
+
+                                <div>
+
+                                    <label
+                                        for="callNumber"
+                                        class="mb-2 block text-sm font-semibold text-gray-700"
+                                    >
+                                        Call Number
+                                    </label>
+
+                                    <select
+                                        id="callNumber"
+                                        class="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm"
+                                    >
+
+                                        <option value="1">
+                                            1st Call
+                                        </option>
+
+                                        <option value="2">
+                                            2nd Call
+                                        </option>
+
+                                        <option value="3">
+                                            3rd Call
+                                        </option>
+
+                                    </select>
+
+                                </div>
+
+
+                                <div>
+
+                                    <label
+                                        for="scheduleType"
+                                        class="mb-2 block text-sm font-semibold text-gray-700"
+                                    >
+                                        Schedule
+                                    </label>
+
+                                    <select
+                                        id="scheduleType"
+                                        class="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm"
+                                    >
+
+                                        <option value="At Once">
+                                            At Once
+                                        </option>
+
+                                        <option value="After Class Period">
+                                            After Class Period
+                                        </option>
+
+                                        <option value="During Vacant Time">
+                                            During Vacant Time
+                                        </option>
+
+                                        <option value="Specific Date / Time">
+                                            Specific Date / Time
+                                        </option>
+
+                                    </select>
+
+                                </div>
+
+
+                                <div>
+
+                                    <label
+                                        for="scheduledDate"
+                                        class="mb-2 block text-sm font-semibold text-gray-700"
+                                    >
+                                        Scheduled Date
+                                    </label>
+
+                                    <input
+                                        id="scheduledDate"
+                                        type="date"
+                                        class="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm"
+                                    >
+
+                                </div>
+
+
+                                <div>
+
+                                    <label
+                                        for="scheduledTime"
+                                        class="mb-2 block text-sm font-semibold text-gray-700"
+                                    >
+                                        Scheduled Time
+                                    </label>
+
+                                    <input
+                                        id="scheduledTime"
+                                        type="time"
+                                        class="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm"
+                                    >
+
+                                </div>
+
+
+                                <div>
+
+                                    <label
+                                        for="callRemarks"
+                                        class="mb-2 block text-sm font-semibold text-gray-700"
+                                    >
+                                        Remarks
+                                    </label>
+
+                                    <input
+                                        id="callRemarks"
+                                        type="text"
+                                        class="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm"
+                                    >
+
+                                </div>
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+
+
+                    <div
+                        id="formMessage"
+                        class="mt-6 hidden rounded-xl px-4 py-3 text-sm"
+                    >
+                    </div>
+
+
+                    <div class="mt-7 flex justify-end gap-3 border-t border-gray-100 pt-6">
+
+                        <button
+                            id="clearFormButton"
+                            type="button"
+                            class="rounded-xl border border-gray-300 bg-white px-5 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+                        >
+                            Clear
+                        </button>
+
+
+                        <button
+                            id="submitComplaintButton"
+                            type="submit"
+                            class="rounded-xl bg-[#006B21] px-6 py-2.5 text-sm font-bold text-white hover:bg-[#005619]"
+                        >
+                            Save Complaint
+                        </button>
+
+                    </div>
+
+                </div>
+
+            </form>
+
+        </div>
+
+    </main>
+
+
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="../js/supabase.js"></script>
+    <script src="../js/auth.js"></script>
+    <script src="../js/complaints.js"></script>
+
+</body>
+
+</html>
