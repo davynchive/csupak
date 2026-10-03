@@ -2,7 +2,6 @@
 <html lang="en">
 
 <head>
-
     <meta charset="UTF-8">
 
     <meta
@@ -16,20 +15,19 @@
         rel="stylesheet"
         href="../src/output.css"
     >
-
 </head>
 
 
 <body class="min-h-screen bg-[#F4F5F3] text-[#1F2933]">
 
 
-    <!-- SIDEBAR -->
+    <!-- =====================================================
+         SIDEBAR
+    ====================================================== -->
 
     <aside
         class="fixed left-0 top-0 flex h-screen w-56 flex-col bg-[#006B21] text-white"
     >
-
-        <!-- Logo -->
 
         <div class="border-b border-white/15 px-6 py-5">
 
@@ -43,8 +41,6 @@
 
         </div>
 
-
-        <!-- Navigation -->
 
         <nav class="flex-1 px-3 py-5">
 
@@ -75,16 +71,16 @@
             <a
                 id="complaintsNav"
                 href="complaints.html"
-                class="mb-1 hidden rounded-lg px-4 py-2.5 text-sm font-medium text-green-50 hover:bg-white/10"
+                class="mb-1 hidden items-center rounded-lg px-4 py-2.5 text-sm font-medium text-green-50 hover:bg-white/10"
             >
-                Complaints
+                Add Complaint
             </a>
 
 
             <a
                 id="complaintTrackingNav"
-                href="complaints.html"
-                class="mb-1 hidden rounded-lg px-4 py-2.5 text-sm font-medium text-green-50 hover:bg-white/10"
+                href="complaint-tracking.html"
+                class="mb-1 hidden items-center rounded-lg px-4 py-2.5 text-sm font-medium text-green-50 hover:bg-white/10"
             >
                 Complaint Tracking
             </a>
@@ -93,7 +89,7 @@
             <a
                 id="interviewTrackingNav"
                 href="call-slips.html"
-                class="mb-1 hidden rounded-lg px-4 py-2.5 text-sm font-medium text-green-50 hover:bg-white/10"
+                class="mb-1 hidden items-center rounded-lg px-4 py-2.5 text-sm font-medium text-green-50 hover:bg-white/10"
             >
                 Interview Tracking
             </a>
@@ -112,12 +108,11 @@
         </nav>
 
 
-        <!-- Logout -->
-
         <div class="border-t border-white/15 p-3">
 
             <button
                 id="logoutButton"
+                type="button"
                 class="w-full rounded-lg px-4 py-2.5 text-left text-sm font-medium text-green-50 hover:bg-white/10"
             >
                 Logout
@@ -129,13 +124,14 @@
 
 
 
-    <!-- MAIN -->
+    <!-- =====================================================
+         MAIN
+    ====================================================== -->
 
     <main class="ml-56 min-h-screen">
 
 
         <!-- PAGE HEADER -->
-
         <header class="border-b border-gray-200 bg-white">
 
             <div class="flex items-center justify-between px-8 py-5">
@@ -148,7 +144,6 @@
                     >
                         Welcome
                     </h2>
-
 
                     <p
                         id="roleMessage"
@@ -178,21 +173,27 @@
 
 
 
-        <!-- PAGE CONTENT -->
+        <!-- =====================================================
+             PAGE CONTENT
+        ====================================================== -->
 
         <div class="px-8 py-7">
 
 
-            <!-- MONTHLY REPORT SECTION -->
+            <!-- =================================================
+                 MONTHLY REPORT
+            ================================================== -->
 
             <section
                 id="monthlyReportSection"
                 class="mb-7 hidden"
             >
 
-                <!-- REPORT HEADER -->
 
-                <div class="mb-4 flex items-end justify-between">
+                <!-- REPORT HEADER -->
+                <div
+                    class="mb-4 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between"
+                >
 
                     <div>
 
@@ -201,96 +202,110 @@
                         </h3>
 
                         <p class="mt-1 text-sm text-gray-500">
-                            Overview of violations recorded during the selected month.
+                            Summary of violations recorded during the selected month.
                         </p>
 
                     </div>
 
 
-                    <select
-                        id="reportMonth"
-                        class="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm outline-none focus:border-[#006B21] focus:ring-2 focus:ring-green-100"
-                    >
+                    <div>
 
-                        <option value="1">
-                            January 2026
-                        </option>
-
-                        <option value="2">
-                            February 2026
-                        </option>
-
-                        <option value="3">
-                            March 2026
-                        </option>
-
-                        <option value="4">
-                            April 2026
-                        </option>
-
-                        <option value="5">
-                            May 2026
-                        </option>
-
-                        <option value="6">
-                            June 2026
-                        </option>
-
-                        <option value="7">
-                            July 2026
-                        </option>
-
-                        <option value="8">
-                            August 2026
-                        </option>
-
-                        <option value="9">
-                            September 2026
-                        </option>
-
-                        <option
-                            value="10"
-                            selected
+                        <label
+                            for="reportMonth"
+                            class="mb-1 block text-xs font-semibold text-gray-500"
                         >
-                            October 2026
-                        </option>
+                            Month
+                        </label>
 
-                        <option value="11">
-                            November 2026
-                        </option>
+                        <select
+                            id="reportMonth"
+                            class="min-w-48 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm outline-none focus:border-[#006B21] focus:ring-2 focus:ring-green-100"
+                        >
 
-                        <option value="12">
-                            December 2026
-                        </option>
+                            <option value="1">
+                                January 2026
+                            </option>
 
-                    </select>
+                            <option value="2">
+                                February 2026
+                            </option>
+
+                            <option value="3">
+                                March 2026
+                            </option>
+
+                            <option value="4">
+                                April 2026
+                            </option>
+
+                            <option value="5">
+                                May 2026
+                            </option>
+
+                            <option value="6">
+                                June 2026
+                            </option>
+
+                            <option value="7">
+                                July 2026
+                            </option>
+
+                            <option value="8">
+                                August 2026
+                            </option>
+
+                            <option value="9">
+                                September 2026
+                            </option>
+
+                            <option value="10">
+                                October 2026
+                            </option>
+
+                            <option value="11">
+                                November 2026
+                            </option>
+
+                            <option value="12">
+                                December 2026
+                            </option>
+
+                        </select>
+
+                    </div>
 
                 </div>
 
 
 
-                <!-- REPORT PANEL -->
+                <!-- =================================================
+                     REPORT PANEL
+                ================================================== -->
 
-                <section
+                <div
                     class="rounded-2xl bg-[#006B21] p-5 shadow-sm"
                 >
 
 
-                    <!-- Month -->
-
-                    <div class="mb-5 flex items-center justify-between">
+                    <!-- REPORT TITLE -->
+                    <div
+                        class="mb-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"
+                    >
 
                         <div>
 
-                            <p class="text-xs font-medium text-green-200">
-                                2026–2027 • 1st Semester
+                            <p
+                                id="reportSemesterName"
+                                class="text-xs font-medium text-green-200"
+                            >
+                                Active Semester
                             </p>
 
                             <h4
                                 id="reportMonthTitle"
                                 class="mt-0.5 text-xl font-bold text-white"
                             >
-                                October 2026
+                                Selected Month
                             </h4>
 
                         </div>
@@ -298,6 +313,7 @@
 
                         <button
                             id="generateReportButton"
+                            type="button"
                             class="rounded-lg bg-[#F5C400] px-4 py-2 text-sm font-bold text-gray-900 transition hover:bg-yellow-300"
                         >
                             Generate Report
@@ -307,7 +323,9 @@
 
 
 
-                    <!-- TOTAL -->
+                    <!-- =================================================
+                         TOTAL + VIOLATION TYPE COUNTS
+                    ================================================== -->
 
                     <div
                         id="violationTypeCards"
@@ -335,18 +353,22 @@
 
 
 
-                    <!-- COLLEGES -->
+                    <!-- =================================================
+                         COLLEGE TOTALS
+                    ================================================== -->
 
                     <div class="mt-6">
 
-                        <div class="mb-3 flex items-center justify-between">
+                        <div
+                            class="mb-3 flex items-center justify-between"
+                        >
 
                             <h4 class="text-sm font-semibold text-white">
                                 Violations by College
                             </h4>
 
                             <span class="text-xs text-green-200">
-                                Select a college to view details
+                                Select a college to view violation types
                             </span>
 
                         </div>
@@ -360,13 +382,15 @@
 
                     </div>
 
-                </section>
+                </div>
 
             </section>
 
 
 
-            <!-- LOWER DASHBOARD -->
+            <!-- =================================================
+                 LOWER DASHBOARD
+            ================================================== -->
 
             <section
                 class="grid grid-cols-1 gap-6 xl:grid-cols-3"
@@ -374,8 +398,9 @@
 
 
                 <!-- QUICK ACTIONS -->
-
-                <div class="rounded-2xl bg-white p-5 shadow-sm">
+                <div
+                    class="rounded-2xl bg-white p-5 shadow-sm"
+                >
 
                     <h3 class="text-lg font-bold text-gray-900">
                         Quick Actions
@@ -407,7 +432,6 @@
 
                             </div>
 
-
                             <span class="text-lg text-[#006B21]">
                                 →
                             </span>
@@ -432,7 +456,6 @@
                                 </p>
 
                             </div>
-
 
                             <span class="text-lg text-[#006B21]">
                                 →
@@ -459,7 +482,6 @@
 
                             </div>
 
-
                             <span class="text-lg text-[#006B21]">
                                 →
                             </span>
@@ -477,22 +499,20 @@
                             <div>
 
                                 <p class="text-sm font-semibold text-gray-900">
-                                    Complaint Tracking
+                                    Add Complaint
                                 </p>
 
                                 <p class="mt-0.5 text-xs text-gray-500">
-                                    Manage complaints
+                                    Record a new complaint
                                 </p>
 
                             </div>
-
 
                             <span class="text-lg text-[#006B21]">
                                 →
                             </span>
 
                         </a>
-
 
                     </div>
 
@@ -501,12 +521,13 @@
 
 
                 <!-- RECENT RECORDS -->
-
                 <div
                     class="rounded-2xl bg-white p-5 shadow-sm xl:col-span-2"
                 >
 
-                    <div class="flex items-center justify-between">
+                    <div
+                        class="flex items-center justify-between"
+                    >
 
                         <div>
 
@@ -551,9 +572,7 @@
 
                 </div>
 
-
             </section>
-
 
         </div>
 
@@ -561,7 +580,9 @@
 
 
 
-    <!-- COLLEGE DETAILS MODAL -->
+    <!-- =====================================================
+         COLLEGE DETAILS MODAL
+    ====================================================== -->
 
     <div
         id="collegeModal"
@@ -571,9 +592,6 @@
         <div
             class="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl"
         >
-
-
-            <!-- Modal Header -->
 
             <div
                 class="flex items-start justify-between border-b border-gray-100 px-6 py-5"
@@ -596,7 +614,7 @@
                         id="modalCollegeMonth"
                         class="mt-1 text-sm text-gray-500"
                     >
-                        October 2026
+                        Selected Month
                     </p>
 
                 </div>
@@ -614,12 +632,7 @@
 
 
 
-            <!-- Modal Content -->
-
             <div class="p-6">
-
-
-                <!-- Total -->
 
                 <div
                     class="rounded-xl bg-[#F3F7F3] p-5"
@@ -639,8 +652,6 @@
                 </div>
 
 
-
-                <!-- Breakdown -->
 
                 <div class="mt-6">
 
@@ -668,8 +679,6 @@
 
 
 
-            <!-- Modal Footer -->
-
             <div
                 class="border-t border-gray-100 bg-gray-50 px-6 py-4"
             >
@@ -684,23 +693,23 @@
 
             </div>
 
-
         </div>
 
     </div>
 
 
 
-    <!-- SCRIPTS -->
+    <!-- =====================================================
+         SCRIPTS
+    ====================================================== -->
 
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script
+        src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"
+    ></script>
 
     <script src="../js/supabase.js"></script>
-
     <script src="../js/auth.js"></script>
-
     <script src="../js/dashboard.js"></script>
-
 
 </body>
 

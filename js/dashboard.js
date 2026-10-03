@@ -49,6 +49,10 @@ const recordViolationCard =
     );
 
 
+/* =====================================================
+   REPORT
+===================================================== */
+
 const monthlyReportSection =
     document.getElementById(
         "monthlyReportSection"
@@ -62,6 +66,11 @@ const reportMonth =
 const reportMonthTitle =
     document.getElementById(
         "reportMonthTitle"
+    );
+
+const reportSemesterName =
+    document.getElementById(
+        "reportSemesterName"
     );
 
 const generateReportButton =
@@ -142,11 +151,11 @@ let activeSemester = null;
 
 let allViolations = [];
 
-let selectedMonthViolations = [];
+let monthlyViolations = [];
 
 
 /* =====================================================
-   USER PROFILE
+   LOAD PROFILE
 ===================================================== */
 
 async function loadUserProfile() {
@@ -259,10 +268,6 @@ function applyRolePermissions() {
     }
 
 
-    /*
-        EVERY ROLE CAN RECORD VIOLATIONS
-    */
-
     if (recordViolationCard) {
 
         recordViolationCard
@@ -282,115 +287,27 @@ function applyRolePermissions() {
         "oswe_admin"
     ) {
 
-        /*
-            ADD COMPLAINT
-        */
-
-        if (complaintsNav) {
-
+        showElement(
             complaintsNav
-                .classList
-                .remove(
-                    "hidden"
-                );
+        );
 
-            complaintsNav
-                .classList
-                .add(
-                    "flex"
-                );
+        showElement(
+            complaintTrackingNav
+        );
 
-            complaintsNav.textContent =
-                "Add Complaint";
-        }
+        showElement(
+            interviewTrackingNav
+        );
 
+        showElement(
+            complaintsCard
+        );
 
-        /*
-            COMPLAINT TRACKING
-        */
 
         if (complaintTrackingNav) {
 
             complaintTrackingNav.href =
                 "complaint-tracking.html";
-
-
-            complaintTrackingNav
-                .classList
-                .remove(
-                    "hidden"
-                );
-
-            complaintTrackingNav
-                .classList
-                .add(
-                    "flex"
-                );
-        }
-
-
-        /*
-            INTERVIEW TRACKING
-        */
-
-        if (interviewTrackingNav) {
-
-            interviewTrackingNav
-                .classList
-                .remove(
-                    "hidden"
-                );
-
-            interviewTrackingNav
-                .classList
-                .add(
-                    "flex"
-                );
-        }
-
-
-        /*
-            QUICK ACTION
-        */
-
-        if (complaintsCard) {
-
-            complaintsCard.href =
-                "complaints.html";
-
-
-            complaintsCard
-                .classList
-                .remove(
-                    "hidden"
-                );
-
-            complaintsCard
-                .classList
-                .add(
-                    "flex"
-                );
-
-
-            const texts =
-                complaintsCard
-                    .querySelectorAll(
-                        "p"
-                    );
-
-
-            if (texts[0]) {
-
-                texts[0].textContent =
-                    "Add Complaint";
-            }
-
-
-            if (texts[1]) {
-
-                texts[1].textContent =
-                    "Record a new complaint";
-            }
         }
     }
 
@@ -404,220 +321,123 @@ function applyRolePermissions() {
         "oswe_staff"
     ) {
 
-        /*
-            ADD COMPLAINT
-        */
-
-        if (complaintsNav) {
-
+        showElement(
             complaintsNav
-                .classList
-                .remove(
-                    "hidden"
-                );
+        );
 
-            complaintsNav
-                .classList
-                .add(
-                    "flex"
-                );
-
-            complaintsNav.textContent =
-                "Add Complaint";
-        }
-
-
-        /*
-            NO COMPLAINT TRACKING
-        */
-
-        if (complaintTrackingNav) {
-
+        hideElement(
             complaintTrackingNav
-                .classList
-                .add(
-                    "hidden"
-                );
+        );
 
-            complaintTrackingNav
-                .classList
-                .remove(
-                    "flex"
-                );
-        }
-
-
-        /*
-            INTERVIEW TRACKING
-
-            STAFF CAN ACCESS THIS.
-        */
-
-        if (interviewTrackingNav) {
-
+        showElement(
             interviewTrackingNav
-                .classList
-                .remove(
-                    "hidden"
-                );
+        );
 
-            interviewTrackingNav
-                .classList
-                .add(
-                    "flex"
-                );
-        }
-
-
-        /*
-            QUICK ACTION
-        */
-
-        if (complaintsCard) {
-
-            complaintsCard.href =
-                "complaints.html";
-
-
+        showElement(
             complaintsCard
-                .classList
-                .remove(
-                    "hidden"
-                );
-
-            complaintsCard
-                .classList
-                .add(
-                    "flex"
-                );
-
-
-            const texts =
-                complaintsCard
-                    .querySelectorAll(
-                        "p"
-                    );
-
-
-            if (texts[0]) {
-
-                texts[0].textContent =
-                    "Add Complaint";
-            }
-
-
-            if (texts[1]) {
-
-                texts[1].textContent =
-                    "Record a new complaint";
-            }
-        }
+        );
     }
 
 
     /* =================================================
-       SECURITY OFFICE
+       SECURITY
     ================================================= */
 
     else {
 
-        if (complaintsNav) {
-
+        hideElement(
             complaintsNav
-                .classList
-                .add(
-                    "hidden"
-                );
+        );
 
-            complaintsNav
-                .classList
-                .remove(
-                    "flex"
-                );
-        }
-
-
-        if (complaintTrackingNav) {
-
+        hideElement(
             complaintTrackingNav
-                .classList
-                .add(
-                    "hidden"
-                );
+        );
 
-            complaintTrackingNav
-                .classList
-                .remove(
-                    "flex"
-                );
-        }
-
-
-        if (interviewTrackingNav) {
-
+        hideElement(
             interviewTrackingNav
-                .classList
-                .add(
-                    "hidden"
-                );
+        );
 
-            interviewTrackingNav
-                .classList
-                .remove(
-                    "flex"
-                );
-        }
-
-
-        if (complaintsCard) {
-
+        hideElement(
             complaintsCard
-                .classList
-                .add(
-                    "hidden"
-                );
-
-            complaintsCard
-                .classList
-                .remove(
-                    "flex"
-                );
-        }
+        );
     }
 
 
     /* =================================================
-       MONTHLY REPORT
+       REPORT ACCESS
 
        Admin: YES
        Staff: YES
        Security: NO
     ================================================= */
 
-    if (monthlyReportSection) {
+    if (
+        currentProfile.role ===
+            "oswe_admin" ||
+        currentProfile.role ===
+            "oswe_staff"
+    ) {
 
-        if (
-            currentProfile.role ===
-                "oswe_admin" ||
-            currentProfile.role ===
-                "oswe_staff"
-        ) {
+        monthlyReportSection
+            .classList
+            .remove(
+                "hidden"
+            );
 
-            monthlyReportSection
-                .classList
-                .remove(
-                    "hidden"
-                );
+    } else {
 
-        } else {
-
-            monthlyReportSection
-                .classList
-                .add(
-                    "hidden"
-                );
-        }
+        monthlyReportSection
+            .classList
+            .add(
+                "hidden"
+            );
     }
+}
+
+
+/* =====================================================
+   SHOW ELEMENT
+===================================================== */
+
+function showElement(element) {
+
+    if (!element) {
+
+        return;
+    }
+
+
+    element.classList.remove(
+        "hidden"
+    );
+
+
+    element.classList.add(
+        "flex"
+    );
+}
+
+
+/* =====================================================
+   HIDE ELEMENT
+===================================================== */
+
+function hideElement(element) {
+
+    if (!element) {
+
+        return;
+    }
+
+
+    element.classList.add(
+        "hidden"
+    );
+
+
+    element.classList.remove(
+        "flex"
+    );
 }
 
 
@@ -641,7 +461,7 @@ async function loadActiveSemester() {
     if (result.error) {
 
         console.error(
-            "Unable to load semester:",
+            "Unable to load active semester:",
             result.error
         );
 
@@ -653,6 +473,16 @@ async function loadActiveSemester() {
         result.data;
 
 
+    if (
+        activeSemester &&
+        reportSemesterName
+    ) {
+
+        reportSemesterName.textContent =
+            activeSemester.name;
+    }
+
+
     return Boolean(
         activeSemester
     );
@@ -660,7 +490,12 @@ async function loadActiveSemester() {
 
 
 /* =====================================================
-   VIOLATIONS
+   LOAD VIOLATIONS
+
+   Violation
+   → Student
+   → Course
+   → College
 ===================================================== */
 
 async function loadViolations() {
@@ -688,8 +523,18 @@ async function loadViolations() {
                 students (
                     student_id,
                     student_name,
-                    course_year,
-                    college
+                    course_id,
+                    year_level,
+                    courses (
+                        id,
+                        course_code,
+                        course_name,
+                        colleges (
+                            id,
+                            college_code,
+                            college_name
+                        )
+                    )
                 )
                 `
             )
@@ -739,7 +584,7 @@ function renderDashboard() {
 
     updateMonthTitle();
 
-    filterViolationsByMonth();
+    filterByMonth();
 
     renderViolationTypes();
 
@@ -779,19 +624,10 @@ function updateMonthTitle() {
 
 
 /* =====================================================
-   FILTER MONTH
+   FILTER BY MONTH
 ===================================================== */
 
-function filterViolationsByMonth() {
-
-    if (!reportMonth) {
-
-        selectedMonthViolations =
-            allViolations;
-
-        return;
-    }
-
+function filterByMonth() {
 
     const selectedMonth =
         Number(
@@ -799,7 +635,7 @@ function filterViolationsByMonth() {
         );
 
 
-    selectedMonthViolations =
+    monthlyViolations =
         allViolations.filter(
             function (violation) {
 
@@ -825,7 +661,41 @@ function filterViolationsByMonth() {
 
 
 /* =====================================================
-   VIOLATION TYPE CARDS
+   VIOLATION TYPES
+===================================================== */
+
+function buildViolationTypeCounts(
+    violations
+) {
+
+    const counts = {};
+
+
+    violations.forEach(
+        function (violation) {
+
+            const type =
+                violation.violation_type ||
+                "Unspecified";
+
+
+            if (!counts[type]) {
+
+                counts[type] = 0;
+            }
+
+
+            counts[type]++;
+        }
+    );
+
+
+    return counts;
+}
+
+
+/* =====================================================
+   RENDER VIOLATION TYPES
 ===================================================== */
 
 function renderViolationTypes() {
@@ -840,7 +710,7 @@ function renderViolationTypes() {
 
 
     totalViolations.textContent =
-        selectedMonthViolations.length;
+        monthlyViolations.length;
 
 
     const oldCards =
@@ -858,26 +728,10 @@ function renderViolationTypes() {
     );
 
 
-    const counts = {};
-
-
-    selectedMonthViolations.forEach(
-        function (violation) {
-
-            const type =
-                violation.violation_type ||
-                "Unspecified";
-
-
-            if (!counts[type]) {
-
-                counts[type] = 0;
-            }
-
-
-            counts[type]++;
-        }
-    );
+    const counts =
+        buildViolationTypeCounts(
+            monthlyViolations
+        );
 
 
     Object.keys(
@@ -951,41 +805,122 @@ function renderViolationTypes() {
 
 
 /* =====================================================
-   COLLEGE DATA
+   GET COURSE
 ===================================================== */
 
-function buildCollegeData() {
+function getViolationCourse(
+    violation
+) {
+
+    if (
+        !violation.students ||
+        !violation.students.courses
+    ) {
+
+        return null;
+    }
+
+
+    return violation.students.courses;
+}
+
+
+/* =====================================================
+   GET COLLEGE
+===================================================== */
+
+function getViolationCollege(
+    violation
+) {
+
+    const course =
+        getViolationCourse(
+            violation
+        );
+
+
+    if (
+        !course ||
+        !course.colleges
+    ) {
+
+        return null;
+    }
+
+
+    return course.colleges;
+}
+
+
+/* =====================================================
+   COLLEGE SUMMARY
+
+   Includes:
+   - total per college
+   - violation types per college
+===================================================== */
+
+function buildCollegeData(
+    violations
+) {
 
     const colleges = {};
 
 
-    selectedMonthViolations.forEach(
+    violations.forEach(
         function (violation) {
 
-            let college =
-                "Unspecified College";
+            const college =
+                getViolationCollege(
+                    violation
+                );
 
 
-            if (
-                violation.students &&
-                violation.students.college
-            ) {
+            let name =
+                "Unmapped College";
 
-                college =
-                    violation.students.college;
+
+            let code =
+                "UNMAPPED";
+
+
+            if (college) {
+
+                name =
+                    college.college_name ||
+                    "Unmapped College";
+
+
+                code =
+                    college.college_code ||
+                    "UNMAPPED";
             }
 
 
-            if (!colleges[college]) {
+            const key =
+                code;
 
-                colleges[college] = {
-                    total: 0,
-                    types: {}
+
+            if (!colleges[key]) {
+
+                colleges[key] = {
+
+                    code:
+                        code,
+
+                    name:
+                        name,
+
+                    total:
+                        0,
+
+                    types:
+                        {}
                 };
             }
 
 
-            colleges[college].total++;
+            colleges[key].total++;
 
 
             const type =
@@ -995,18 +930,18 @@ function buildCollegeData() {
 
             if (
                 !colleges[
-                    college
+                    key
                 ].types[type]
             ) {
 
                 colleges[
-                    college
+                    key
                 ].types[type] = 0;
             }
 
 
             colleges[
-                college
+                key
             ].types[type]++;
         }
     );
@@ -1017,7 +952,7 @@ function buildCollegeData() {
 
 
 /* =====================================================
-   COLLEGE CARDS
+   RENDER COLLEGE CARDS
 ===================================================== */
 
 function renderCollegeCards() {
@@ -1033,17 +968,19 @@ function renderCollegeCards() {
 
 
     const colleges =
-        buildCollegeData();
+        buildCollegeData(
+            monthlyViolations
+        );
 
 
-    const names =
+    const codes =
         Object.keys(
             colleges
         ).sort();
 
 
     if (
-        names.length === 0
+        codes.length === 0
     ) {
 
         collegeCards.innerHTML =
@@ -1056,11 +993,11 @@ function renderCollegeCards() {
     }
 
 
-    names.forEach(
-        function (name) {
+    codes.forEach(
+        function (code) {
 
             const data =
-                colleges[name];
+                colleges[code];
 
 
             const button =
@@ -1091,18 +1028,32 @@ function renderCollegeCards() {
                 data.total;
 
 
-            const label =
+            const codeText =
                 document.createElement(
                     "p"
                 );
 
 
-            label.className =
-                "mt-1 truncate text-xs font-semibold text-gray-600";
+            codeText.className =
+                "mt-1 text-xs font-bold text-gray-700";
 
 
-            label.textContent =
-                name;
+            codeText.textContent =
+                data.code;
+
+
+            const name =
+                document.createElement(
+                    "p"
+                );
+
+
+            name.className =
+                "mt-1 text-xs text-gray-500";
+
+
+            name.textContent =
+                data.name;
 
 
             button.appendChild(
@@ -1111,7 +1062,12 @@ function renderCollegeCards() {
 
 
             button.appendChild(
-                label
+                codeText
+            );
+
+
+            button.appendChild(
+                name
             );
 
 
@@ -1120,7 +1076,6 @@ function renderCollegeCards() {
                 function () {
 
                     openCollegeModal(
-                        name,
                         data
                     );
                 }
@@ -1140,25 +1095,25 @@ function renderCollegeCards() {
 ===================================================== */
 
 function openCollegeModal(
-    name,
     data
 ) {
 
     modalCollegeName.textContent =
-        name;
+        data.code +
+        " - " +
+        data.name;
 
 
-    const option =
+    const monthOption =
         reportMonth.options[
             reportMonth.selectedIndex
         ];
 
 
-    if (option) {
-
-        modalCollegeMonth.textContent =
-            option.textContent;
-    }
+    modalCollegeMonth.textContent =
+        monthOption
+            ? monthOption.textContent
+            : "Selected Month";
 
 
     modalCollegeTotal.textContent =
@@ -1175,75 +1130,87 @@ function openCollegeModal(
         ).sort();
 
 
-    types.forEach(
-        function (type, index) {
+    if (
+        types.length === 0
+    ) {
 
-            const row =
-                document.createElement(
-                    "div"
+        modalViolationBreakdown.innerHTML =
+            "<div class=\"px-4 py-5 text-center text-sm text-gray-500\">" +
+                "No violation records." +
+            "</div>";
+
+    } else {
+
+        types.forEach(
+            function (type, index) {
+
+                const row =
+                    document.createElement(
+                        "div"
+                    );
+
+
+                row.className =
+                    "flex items-center justify-between px-4 py-3";
+
+
+                if (
+                    index <
+                    types.length - 1
+                ) {
+
+                    row.classList.add(
+                        "border-b",
+                        "border-gray-100"
+                    );
+                }
+
+
+                const label =
+                    document.createElement(
+                        "p"
+                    );
+
+
+                label.className =
+                    "text-sm text-gray-700";
+
+
+                label.textContent =
+                    type;
+
+
+                const count =
+                    document.createElement(
+                        "span"
+                    );
+
+
+                count.className =
+                    "rounded-full bg-[#F3F7F3] px-3 py-1 text-xs font-bold text-[#006B21]";
+
+
+                count.textContent =
+                    data.types[type];
+
+
+                row.appendChild(
+                    label
                 );
 
 
-            row.className =
-                "flex items-center justify-between px-4 py-3";
-
-
-            if (
-                index <
-                types.length - 1
-            ) {
-
-                row.classList.add(
-                    "border-b",
-                    "border-gray-100"
+                row.appendChild(
+                    count
                 );
+
+
+                modalViolationBreakdown
+                    .appendChild(
+                        row
+                    );
             }
-
-
-            const label =
-                document.createElement(
-                    "p"
-                );
-
-
-            label.className =
-                "text-sm text-gray-700";
-
-
-            label.textContent =
-                type;
-
-
-            const count =
-                document.createElement(
-                    "span"
-                );
-
-
-            count.className =
-                "rounded-full bg-[#F3F7F3] px-3 py-1 text-xs font-bold text-[#006B21]";
-
-
-            count.textContent =
-                data.types[type];
-
-
-            row.appendChild(
-                label
-            );
-
-
-            row.appendChild(
-                count
-            );
-
-
-            modalViolationBreakdown
-                .appendChild(
-                    row
-                );
-        }
-    );
+        );
+    }
 
 
     collegeModal.classList.remove(
@@ -1258,7 +1225,7 @@ function openCollegeModal(
 
 
 /* =====================================================
-   CLOSE MODAL
+   CLOSE COLLEGE MODAL
 ===================================================== */
 
 function hideCollegeModal() {
@@ -1365,19 +1332,51 @@ function renderRecentRecords() {
                     : "Unknown Student";
 
 
-            const type =
+            const course =
+                getViolationCourse(
+                    violation
+                );
+
+
+            const detail =
                 document.createElement(
                     "p"
                 );
 
 
-            type.className =
+            detail.className =
                 "mt-1 text-xs text-gray-500";
 
 
-            type.textContent =
+            let detailText =
                 violation.violation_type ||
                 "Unspecified";
+
+
+            if (
+                course &&
+                course.course_code
+            ) {
+
+                detailText +=
+                    " • " +
+                    course.course_code;
+            }
+
+
+            if (
+                violation.students &&
+                violation.students.year_level
+            ) {
+
+                detailText +=
+                    " " +
+                    violation.students.year_level;
+            }
+
+
+            detail.textContent =
+                detailText;
 
 
             left.appendChild(
@@ -1386,7 +1385,7 @@ function renderRecentRecords() {
 
 
             left.appendChild(
-                type
+                detail
             );
 
 
@@ -1429,51 +1428,287 @@ function renderRecentRecords() {
 
 
 /* =====================================================
-   REPORT HELPERS
+   ESCAPE HTML
 ===================================================== */
 
-function formatDate(value) {
+function escapeHtml(value) {
 
-    if (!value) {
-
-        return "—";
-    }
-
-
-    const date =
-        new Date(value);
-
-
-    return date.toLocaleDateString(
-        "en-PH",
-        {
-            year: "numeric",
-            month: "short",
-            day: "numeric"
-        }
-    );
+    return String(
+        value || ""
+    )
+        .replace(
+            /&/g,
+            "&amp;"
+        )
+        .replace(
+            /</g,
+            "&lt;"
+        )
+        .replace(
+            />/g,
+            "&gt;"
+        )
+        .replace(
+            /"/g,
+            "&quot;"
+        )
+        .replace(
+            /'/g,
+            "&#039;"
+        );
 }
 
 
-function formatTime(value) {
+/* =====================================================
+   REPORT - VIOLATIONS PER TYPE
+===================================================== */
 
-    if (!value) {
+function buildTypeReportRows(
+    typeCounts
+) {
 
-        return "—";
+    const types =
+        Object.keys(
+            typeCounts
+        ).sort();
+
+
+    if (
+        types.length === 0
+    ) {
+
+        return (
+            "<tr>" +
+                "<td colspan=\"2\" class=\"empty\">" +
+                    "No violation records." +
+                "</td>" +
+            "</tr>"
+        );
     }
 
 
-    const date =
-        new Date(value);
+    let rows = "";
 
 
-    return date.toLocaleTimeString(
-        "en-PH",
-        {
-            hour: "numeric",
-            minute: "2-digit"
+    types.forEach(
+        function (type) {
+
+            rows +=
+                "<tr>" +
+
+                    "<td>" +
+                        escapeHtml(
+                            type
+                        ) +
+                    "</td>" +
+
+                    "<td class=\"number\">" +
+                        typeCounts[type] +
+                    "</td>" +
+
+                "</tr>";
         }
     );
+
+
+    return rows;
+}
+
+
+/* =====================================================
+   REPORT - COLLEGE TOTALS
+===================================================== */
+
+function buildCollegeReportRows(
+    collegeData
+) {
+
+    const codes =
+        Object.keys(
+            collegeData
+        ).sort();
+
+
+    if (
+        codes.length === 0
+    ) {
+
+        return (
+            "<tr>" +
+                "<td colspan=\"3\" class=\"empty\">" +
+                    "No violation records." +
+                "</td>" +
+            "</tr>"
+        );
+    }
+
+
+    let rows = "";
+
+
+    codes.forEach(
+        function (code) {
+
+            const college =
+                collegeData[code];
+
+
+            rows +=
+                "<tr>" +
+
+                    "<td>" +
+                        escapeHtml(
+                            college.code
+                        ) +
+                    "</td>" +
+
+                    "<td>" +
+                        escapeHtml(
+                            college.name
+                        ) +
+                    "</td>" +
+
+                    "<td class=\"number\">" +
+                        college.total +
+                    "</td>" +
+
+                "</tr>";
+        }
+    );
+
+
+    return rows;
+}
+
+
+/* =====================================================
+   REPORT - TYPES PER COLLEGE
+===================================================== */
+
+function buildCollegeTypeSections(
+    collegeData
+) {
+
+    const codes =
+        Object.keys(
+            collegeData
+        ).sort();
+
+
+    if (
+        codes.length === 0
+    ) {
+
+        return (
+            "<p class=\"empty-block\">" +
+                "No violation records." +
+            "</p>"
+        );
+    }
+
+
+    let sections = "";
+
+
+    codes.forEach(
+        function (code) {
+
+            const college =
+                collegeData[code];
+
+
+            const types =
+                Object.keys(
+                    college.types
+                ).sort();
+
+
+            let rows = "";
+
+
+            types.forEach(
+                function (type) {
+
+                    rows +=
+                        "<tr>" +
+
+                            "<td>" +
+                                escapeHtml(
+                                    type
+                                ) +
+                            "</td>" +
+
+                            "<td class=\"number\">" +
+                                college.types[
+                                    type
+                                ] +
+                            "</td>" +
+
+                        "</tr>";
+                }
+            );
+
+
+            if (!rows) {
+
+                rows =
+                    "<tr>" +
+
+                        "<td colspan=\"2\" class=\"empty\">" +
+                            "No violation records." +
+                        "</td>" +
+
+                    "</tr>";
+            }
+
+
+            sections +=
+
+                "<div class=\"college-section\">" +
+
+                    "<h3>" +
+                        escapeHtml(
+                            college.code
+                        ) +
+                        " - " +
+                        escapeHtml(
+                            college.name
+                        ) +
+                    "</h3>" +
+
+                    "<p class=\"college-total\">" +
+                        "Total Violations: " +
+                        college.total +
+                    "</p>" +
+
+                    "<table>" +
+
+                        "<thead>" +
+
+                            "<tr>" +
+
+                                "<th>Violation Type</th>" +
+
+                                "<th>Number of Violations</th>" +
+
+                            "</tr>" +
+
+                        "</thead>" +
+
+                        "<tbody>" +
+
+                            rows +
+
+                        "</tbody>" +
+
+                    "</table>" +
+
+                "</div>";
+        }
+    );
+
+
+    return sections;
 }
 
 
@@ -1497,71 +1732,71 @@ function generateReport() {
     }
 
 
-    const option =
+    const monthOption =
         reportMonth.options[
             reportMonth.selectedIndex
         ];
 
 
     const monthName =
-        option
-            ? option.textContent
+        monthOption
+            ? monthOption.textContent
             : "Selected Month";
 
 
-    let rows = "";
+    const semesterName =
+        activeSemester
+            ? activeSemester.name
+            : "Active Semester";
 
 
-    selectedMonthViolations.forEach(
-        function (violation) {
+    /*
+        1. TOTAL VIOLATIONS
+    */
 
-            const college =
-                violation.students &&
-                violation.students.college
-                    ? violation.students.college
-                    : "Unspecified";
+    const total =
+        monthlyViolations.length;
 
 
-            rows +=
-                "<tr>" +
+    /*
+        2. NUMBER PER TYPE
+    */
 
-                    "<td>" +
-                        (
-                            violation.violation_type ||
-                            "Unspecified"
-                        ) +
-                    "</td>" +
-
-                    "<td>" +
-                        college +
-                    "</td>" +
-
-                    "<td>" +
-                        formatDate(
-                            violation.date_time
-                        ) +
-                    "</td>" +
-
-                    "<td>" +
-                        formatTime(
-                            violation.date_time
-                        ) +
-                    "</td>" +
-
-                "</tr>";
-        }
-    );
+    const typeCounts =
+        buildViolationTypeCounts(
+            monthlyViolations
+        );
 
 
-    if (!rows) {
+    /*
+        3. TOTAL PER COLLEGE
 
-        rows =
-            "<tr>" +
-                "<td colspan=\"4\" style=\"text-align:center;padding:20px;\">" +
-                    "No violation records." +
-                "</td>" +
-            "</tr>";
-    }
+        4. NUMBER PER TYPE
+           PER COLLEGE
+    */
+
+    const collegeData =
+        buildCollegeData(
+            monthlyViolations
+        );
+
+
+    const typeRows =
+        buildTypeReportRows(
+            typeCounts
+        );
+
+
+    const collegeRows =
+        buildCollegeReportRows(
+            collegeData
+        );
+
+
+    const collegeTypeSections =
+        buildCollegeTypeSections(
+            collegeData
+        );
 
 
     const reportWindow =
@@ -1582,29 +1817,82 @@ function generateReport() {
 
 
     reportWindow.document.write(
+
         "<!DOCTYPE html>" +
 
         "<html>" +
 
         "<head>" +
 
-            "<title>CSUPAK Report</title>" +
+            "<meta charset=\"UTF-8\">" +
+
+            "<title>CSUPAK Violation Report</title>" +
 
             "<style>" +
 
                 "body{" +
                     "font-family:Arial,sans-serif;" +
                     "margin:40px;" +
+                    "color:#222;" +
+                    "font-size:14px;" +
                 "}" +
 
                 "h1{" +
+                    "margin:0;" +
                     "color:#006B21;" +
+                    "font-size:28px;" +
+                "}" +
+
+                "h2{" +
+                    "margin-top:6px;" +
+                    "margin-bottom:20px;" +
+                    "font-size:20px;" +
+                "}" +
+
+                "h3{" +
+                    "margin-top:0;" +
+                    "margin-bottom:5px;" +
+                    "font-size:16px;" +
+                "}" +
+
+                ".meta{" +
+                    "margin:5px 0;" +
+                    "color:#555;" +
+                "}" +
+
+                ".summary{" +
+                    "margin-top:25px;" +
+                    "padding:18px;" +
+                    "border:1px solid #ddd;" +
+                    "border-radius:8px;" +
+                "}" +
+
+                ".summary-label{" +
+                    "margin:0;" +
+                    "color:#555;" +
+                    "font-size:13px;" +
+                "}" +
+
+                ".summary-number{" +
+                    "margin:5px 0 0 0;" +
+                    "font-size:32px;" +
+                    "font-weight:bold;" +
+                    "color:#006B21;" +
+                "}" +
+
+                ".section{" +
+                    "margin-top:30px;" +
+                "}" +
+
+                ".section-title{" +
+                    "margin-bottom:10px;" +
+                    "font-size:17px;" +
+                    "font-weight:bold;" +
                 "}" +
 
                 "table{" +
                     "width:100%;" +
                     "border-collapse:collapse;" +
-                    "margin-top:25px;" +
                 "}" +
 
                 "th{" +
@@ -1612,11 +1900,50 @@ function generateReport() {
                     "color:white;" +
                     "padding:10px;" +
                     "text-align:left;" +
+                    "border:1px solid #006B21;" +
                 "}" +
 
                 "td{" +
                     "padding:10px;" +
-                    "border-bottom:1px solid #ddd;" +
+                    "border:1px solid #ddd;" +
+                "}" +
+
+                ".number{" +
+                    "width:160px;" +
+                    "text-align:center;" +
+                    "font-weight:bold;" +
+                "}" +
+
+                ".empty{" +
+                    "padding:20px;" +
+                    "text-align:center;" +
+                    "color:#777;" +
+                "}" +
+
+                ".empty-block{" +
+                    "padding:20px;" +
+                    "text-align:center;" +
+                    "border:1px solid #ddd;" +
+                    "color:#777;" +
+                "}" +
+
+                ".college-section{" +
+                    "margin-top:20px;" +
+                    "page-break-inside:avoid;" +
+                "}" +
+
+                ".college-total{" +
+                    "margin-top:0;" +
+                    "margin-bottom:10px;" +
+                    "color:#555;" +
+                "}" +
+
+                "@media print{" +
+
+                    "body{" +
+                        "margin:20px;" +
+                    "}" +
+
                 "}" +
 
             "</style>" +
@@ -1625,44 +1952,146 @@ function generateReport() {
 
         "<body>" +
 
+
             "<h1>CSUPAK</h1>" +
 
-            "<h2>Violation Report - " +
-                monthName +
-            "</h2>" +
+            "<h2>Monthly Violation Report</h2>" +
 
-            "<p>Total Violations: " +
-                selectedMonthViolations.length +
+
+            "<p class=\"meta\">" +
+                "<strong>Semester:</strong> " +
+                escapeHtml(
+                    semesterName
+                ) +
             "</p>" +
 
-            "<table>" +
 
-                "<thead>" +
+            "<p class=\"meta\">" +
+                "<strong>Month:</strong> " +
+                escapeHtml(
+                    monthName
+                ) +
+            "</p>" +
 
-                    "<tr>" +
 
-                        "<th>Violation Type</th>" +
-                        "<th>College</th>" +
-                        "<th>Date</th>" +
-                        "<th>Time</th>" +
 
-                    "</tr>" +
+            /* =============================================
+               1. TOTAL VIOLATIONS
+            ============================================= */
 
-                "</thead>" +
+            "<div class=\"summary\">" +
 
-                "<tbody>" +
+                "<p class=\"summary-label\">" +
+                    "Total Violations" +
+                "</p>" +
 
-                    rows +
+                "<p class=\"summary-number\">" +
+                    total +
+                "</p>" +
 
-                "</tbody>" +
+            "</div>" +
 
-            "</table>" +
+
+
+            /* =============================================
+               2. NUMBER PER TYPE
+            ============================================= */
+
+            "<div class=\"section\">" +
+
+                "<div class=\"section-title\">" +
+                    "Number of Violations per Type" +
+                "</div>" +
+
+                "<table>" +
+
+                    "<thead>" +
+
+                        "<tr>" +
+
+                            "<th>Violation Type</th>" +
+
+                            "<th>Number of Violations</th>" +
+
+                        "</tr>" +
+
+                    "</thead>" +
+
+                    "<tbody>" +
+
+                        typeRows +
+
+                    "</tbody>" +
+
+                "</table>" +
+
+            "</div>" +
+
+
+
+            /* =============================================
+               3. TOTAL PER COLLEGE
+            ============================================= */
+
+            "<div class=\"section\">" +
+
+                "<div class=\"section-title\">" +
+                    "Total Violations per College" +
+                "</div>" +
+
+                "<table>" +
+
+                    "<thead>" +
+
+                        "<tr>" +
+
+                            "<th>College Code</th>" +
+
+                            "<th>College</th>" +
+
+                            "<th>Total Violations</th>" +
+
+                        "</tr>" +
+
+                    "</thead>" +
+
+                    "<tbody>" +
+
+                        collegeRows +
+
+                    "</tbody>" +
+
+                "</table>" +
+
+            "</div>" +
+
+
+
+            /* =============================================
+               4. TYPE PER COLLEGE
+            ============================================= */
+
+            "<div class=\"section\">" +
+
+                "<div class=\"section-title\">" +
+                    "Number of Violations per Type per College" +
+                "</div>" +
+
+                collegeTypeSections +
+
+            "</div>" +
+
 
             "<script>" +
-                "window.onload=function(){" +
+
+                "window.onload = function () {" +
+
                     "window.print();" +
+
                 "};" +
+
             "</script>" +
+
 
         "</body>" +
 
@@ -1671,6 +2100,40 @@ function generateReport() {
 
 
     reportWindow.document.close();
+}
+
+
+/* =====================================================
+   MONTH
+===================================================== */
+
+function restoreSelectedMonth() {
+
+    if (!reportMonth) {
+
+        return;
+    }
+
+
+    const saved =
+        localStorage.getItem(
+            "csupakReportMonth"
+        );
+
+
+    if (saved) {
+
+        reportMonth.value =
+            saved;
+
+        return;
+    }
+
+
+    reportMonth.value =
+        String(
+            new Date().getMonth() + 1
+        );
 }
 
 
@@ -1750,40 +2213,6 @@ if (logoutButton) {
             await logout();
         }
     );
-}
-
-
-/* =====================================================
-   MONTH
-===================================================== */
-
-function restoreSelectedMonth() {
-
-    if (!reportMonth) {
-
-        return;
-    }
-
-
-    const saved =
-        localStorage.getItem(
-            "csupakReportMonth"
-        );
-
-
-    if (saved) {
-
-        reportMonth.value =
-            saved;
-
-        return;
-    }
-
-
-    reportMonth.value =
-        String(
-            new Date().getMonth() + 1
-        );
 }
 
 
