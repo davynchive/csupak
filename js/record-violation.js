@@ -548,61 +548,31 @@ async function loadCourses() {
 ===================================================== */
 
 function setCurrentDateTime() {
+    const dateTime = document.getElementById("dateTime");
 
-    const now =
-        new Date();
+    const now = new Date();
 
+    const formatter = new Intl.DateTimeFormat("en-CA", {
+        timeZone: "Asia/Manila",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false
+    });
 
-    const year =
-        now.getFullYear();
+    const parts = formatter.formatToParts(now);
+    const values = {};
 
-
-    const month =
-        String(
-            now.getMonth() + 1
-        ).padStart(
-            2,
-            "0"
-        );
-
-
-    const day =
-        String(
-            now.getDate()
-        ).padStart(
-            2,
-            "0"
-        );
-
-
-    const hour =
-        String(
-            now.getHours()
-        ).padStart(
-            2,
-            "0"
-        );
-
-
-    const minute =
-        String(
-            now.getMinutes()
-        ).padStart(
-            2,
-            "0"
-        );
-
+    parts.forEach(part => {
+        if (part.type !== "literal") {
+            values[part.type] = part.value;
+        }
+    });
 
     dateTime.value =
-        year +
-        "-" +
-        month +
-        "-" +
-        day +
-        "T" +
-        hour +
-        ":" +
-        minute;
+        `${values.year}-${values.month}-${values.day}T${values.hour}:${values.minute}`;
 }
 
 
@@ -988,7 +958,7 @@ async function createViolation(
                     null,
 
                 date_time:
-                    dateTime.value,
+                    new Date(dateTime.value + ":00+08:00").toISOString(),
 
                 remarks:
                     remarks
