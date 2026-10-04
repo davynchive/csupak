@@ -501,12 +501,7 @@ async function loadActiveSemester() {
 
 async function loadViolations() {
 
-    console.log(
-        "6. loadViolations() started"
-    );
-    
     if (!activeSemester) {
-        console.log("Dashboard stopped: active semester failed.");
         return;
     }
 

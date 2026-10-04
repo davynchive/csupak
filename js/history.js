@@ -1599,6 +1599,8 @@ function formatDateTime(value) {
     return date.toLocaleString(
         "en-PH",
         {
+            timeZone:
+                "Asia/Manila",
             year:
                 "numeric",
 
@@ -1612,7 +1614,8 @@ function formatDateTime(value) {
                 "numeric",
 
             minute:
-                "2-digit"
+                "2-digit",
+            hour12: true
         }
     );
 }
