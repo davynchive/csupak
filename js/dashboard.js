@@ -515,6 +515,10 @@ async function loadViolations() {
     if (violationsErrorMessage) violationsErrorMessage.hidden = true;
     renderDashboard();
 
+    if (!activeSemester) {
+        return;
+    }
+
     // Publish only after every batch succeeds; never render a partial report.
     const retrievedViolations = [];
     const ids = new Set();
