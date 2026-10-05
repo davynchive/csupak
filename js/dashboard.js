@@ -608,7 +608,11 @@ async function loadViolations() {
 function renderDashboard() {
     if (!violationsComplete) {
         if (totalViolations) totalViolations.textContent = "Unavailable";
-        if (violationTypeCards) violationTypeCards.innerHTML = "";
+        if (violationTypeCards) {
+            violationTypeCards.querySelectorAll("[data-violation-type-card]").forEach(function (card) {
+                card.remove();
+            });
+        }
         if (collegeCards) collegeCards.innerHTML = "";
         if (recentRecords) recentRecords.innerHTML = "";
         if (violationsLoadError) {
