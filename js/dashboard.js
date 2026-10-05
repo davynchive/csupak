@@ -515,16 +515,10 @@ async function loadViolations() {
     if (violationsErrorMessage) violationsErrorMessage.hidden = true;
     renderDashboard();
 
-<<<<<<< HEAD
     if (!activeSemester) {
         return;
     }
 
-
-    const result =
-        await supabaseClient
-            .from("violations")
-=======
     // Publish only after every batch succeeds; never render a partial report.
     const retrievedViolations = [];
     const ids = new Set();
@@ -537,7 +531,6 @@ async function loadViolations() {
         do {
             const result = await supabaseClient
                 .from("violations")
->>>>>>> 98dd817d6f21297c5cd7ee39b3e40452a822fd2c
             .select(
                 `
                 id,
