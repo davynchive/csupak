@@ -197,6 +197,164 @@ let selectedCallSlipId = null;
    ROLE DISPLAY
 ===================================================== */
 
+const callHistoryModal = document.getElementById("callHistoryModal");
+const callHistoryContent = document.getElementById("callHistoryContent");
+const closeCallHistoryModal = document.getElementById("closeCallHistoryModal");
+let callHistoryRequestToken = 0;
+let callHistoryReturnFocus = null;
+let callHistoryPreviousOverflow = null;
+
+function closeCallHistory(restoreFocus = true) {
+    callHistoryRequestToken++;
+    callHistoryModal.classList.add("hidden");
+    callHistoryModal.classList.remove("flex");
+    callHistoryContent.replaceChildren();
+    if (callHistoryPreviousOverflow !== null) {
+        document.body.style.overflow = callHistoryPreviousOverflow;
+        callHistoryPreviousOverflow = null;
+    }
+    const trigger = callHistoryReturnFocus;
+    callHistoryReturnFocus = null;
+    if (restoreFocus && trigger && trigger.isConnected) trigger.focus();
+}
+
+function showCallHistoryMessage(text, error = false) {
+    callHistoryContent.replaceChildren();
+    const message = document.createElement("p");
+    message.className = error ? "text-sm text-red-600" : "text-sm text-gray-500";
+    if (error) message.setAttribute("role", "alert");
+    message.textContent = text;
+    callHistoryContent.appendChild(message);
+}
+
+function renderCallHistory(records) {
+    callHistoryContent.replaceChildren();
+    if (!records.length) {
+        showCallHistoryMessage("No status history available.");
+        return;
+    }
+    const labels = { baseline: "Baseline recorded", created: "Record created", status_changed: "Status changed", schedule_changed: "Schedule changed", status_and_schedule_changed: "Status and schedule changed", remarks_changed: "Remarks changed" };
+    const displayText = (value, fallback) => typeof value === "string" && value.trim() ? value : fallback;
+    for (const record of records) {
+        const entry = document.createElement("div");
+        entry.className = "mb-3 rounded-xl border border-gray-100 p-4";
+        entry.style.overflowWrap = "anywhere";
+        const event = document.createElement("p");
+        event.className = "text-sm font-bold text-[#006B21]";
+        event.textContent = Object.prototype.hasOwnProperty.call(labels, record.event_type)
+            ? labels[record.event_type] : displayText(record.event_type, "History event");
+        const transition = document.createElement("p");
+        transition.className = "mt-2 text-sm text-gray-700";
+        transition.textContent = displayText(record.previous_status, "Pending") + " → " +
+            displayText(record.new_status, "Pending");
+        const actor = document.createElement("p");
+        actor.className = "mt-2 text-xs text-gray-500";
+        actor.textContent = displayText(record.actor_name, "System / Unattributed") + " · " +
+            displayText(record.actor_role, "Role not recorded");
+        const time = document.createElement("p");
+        time.className = "mt-1 text-xs text-gray-500";
+        const date = record.changed_at ? new Date(record.changed_at) : null;
+        time.textContent = date && Number.isFinite(date.getTime())
+            ? date.toLocaleString("en-PH", { timeZone: "Asia/Manila", year: "numeric", month: "short", day: "numeric", hour: "numeric", minute: "2-digit", hour12: true }) : "Date/time unavailable";
+        entry.appendChild(event);
+        entry.appendChild(transition);
+        const isInitial = ["baseline", "created"].includes(record.event_type);
+        for (const [label, previous, next] of [
+            ["Schedule", record.previous_schedule_type, record.new_schedule_type],
+            ["Scheduled date", record.previous_scheduled_date, record.new_scheduled_date],
+            ["Scheduled time", record.previous_scheduled_time, record.new_scheduled_time],
+            ["Remarks", record.previous_remarks, record.new_remarks]
+        ]) {
+            const before = displayText(previous, "Not provided");
+            const after = displayText(next, "Not provided");
+            if (previous === next || (before === "Not provided" && after === "Not provided")) continue;
+            const detail = document.createElement("p");
+            detail.className = "mt-2 whitespace-pre-wrap text-sm text-gray-700";
+            detail.textContent = label + ": " + (isInitial ? after : before + " ? " + after);
+            entry.appendChild(detail);
+        }
+        entry.appendChild(actor);
+        entry.appendChild(time);
+        callHistoryContent.appendChild(entry);
+    }
+}
+
+async function openCallHistory(call, trigger) {
+    if (!currentProfile || !["oswe_staff", "oswe_admin"].includes(currentProfile.role) ||
+        callSlipsLoading || !callSlipsComplete || !allCallSlips.some(record => record.id === call.id)) return;
+    closeCallHistory(false);
+    const token = ++callHistoryRequestToken;
+    const isCurrent = () => token === callHistoryRequestToken;
+    callHistoryReturnFocus = trigger;
+    callHistoryPreviousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    callHistoryModal.classList.remove("hidden");
+    callHistoryModal.classList.add("flex");
+    showCallHistoryMessage("Loading status history...");
+    closeCallHistoryModal.focus();
+    const records = [];
+    const ids = new Set();
+    let expectedTotal = null;
+    let offset = 0;
+    try {
+        do {
+            if (!isCurrent()) return;
+            const result = await supabaseClient.from("call_slip_history")
+                .select("id, call_slip_id, event_type, previous_status, new_status, previous_schedule_type, new_schedule_type, previous_scheduled_date, new_scheduled_date, previous_scheduled_time, new_scheduled_time, previous_remarks, new_remarks, actor_name, actor_role, changed_at", { count: "exact" })
+                .eq("call_slip_id", call.id)
+                .order("changed_at", { ascending: false })
+                .order("id", { ascending: false })
+                .range(offset, offset + CALL_SLIP_BATCH_SIZE - 1);
+            if (!isCurrent()) return;
+            if (result.error) throw result.error;
+            if (!Array.isArray(result.data) || !Number.isSafeInteger(result.count) ||
+                result.count < 0 || result.data.length > CALL_SLIP_BATCH_SIZE) {
+                throw new Error("Invalid status history batch.");
+            }
+            if (expectedTotal === null) expectedTotal = result.count;
+            if (result.count !== expectedTotal) throw new Error("Status history count changed while loading.");
+            if (!result.data.length && offset < expectedTotal) throw new Error("Premature empty status history batch.");
+            for (const record of result.data) {
+                if (!record || typeof record !== "object" || Array.isArray(record) ||
+                    !["string", "number"].includes(typeof record.id) || !String(record.id).trim() ||
+                    (typeof record.id === "number" && !Number.isFinite(record.id)) ||
+                    String(record.call_slip_id) !== String(call.id)) {
+                    throw new Error("Invalid status history record.");
+                }
+                const id = String(record.id);
+                if (ids.has(id)) throw new Error("Duplicate status history ID.");
+                ids.add(id);
+                records.push(record);
+            }
+            offset += result.data.length;
+        } while (offset < expectedTotal);
+        if (records.length !== expectedTotal || ids.size !== expectedTotal) throw new Error("Incomplete status history.");
+        if (isCurrent()) renderCallHistory(records);
+    } catch (error) {
+        if (!isCurrent()) return;
+        console.error("Unable to load complete status history:", error);
+        showCallHistoryMessage("Unable to load complete status history. Close and reopen to try again.", true);
+    }
+}
+
+closeCallHistoryModal.addEventListener("click", () => closeCallHistory());
+callHistoryModal.addEventListener("click", event => {
+    if (event.target === callHistoryModal) closeCallHistory();
+});
+document.addEventListener("keydown", event => {
+    if (callHistoryModal.classList.contains("hidden")) return;
+    if (event.key === "Escape") {
+        event.preventDefault();
+        closeCallHistory();
+    } else if (event.key === "Tab") {
+        event.preventDefault();
+        if (document.activeElement === closeCallHistoryModal) callHistoryContent.focus();
+        else closeCallHistoryModal.focus();
+    }
+});
+
+
+
 function getRoleDisplayName(role) {
 
     if (role === "oswe_admin") {
@@ -1073,6 +1231,13 @@ function createCallRow(
         date
     );
 
+
+    const historyButton = document.createElement("button");
+    historyButton.type = "button";
+    historyButton.className = "rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-xs font-semibold text-[#006B21] hover:bg-green-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-600 focus-visible:ring-offset-2";
+    historyButton.textContent = "Status History";
+    historyButton.addEventListener("click", () => openCallHistory(call, historyButton));
+    callTitle.appendChild(historyButton);
 
     left.appendChild(
         callTitle
