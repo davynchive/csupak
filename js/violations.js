@@ -357,9 +357,12 @@ async function loadViolations() {
 
     // Publish only when every batch has succeeded.
     const records = [];
+    const ids = new Set();
+    let expectedTotal = null;
+    let offset = 0;
     try {
         if (!activeSemester) throw new Error("No active semester is configured.");
-        for (let offset = 0; ; offset += VIOLATION_BATCH_SIZE) {
+        do {
             const result = await supabaseClient
                 .from("violations")
             .select(
@@ -395,16 +398,35 @@ async function loadViolations() {
                     file_name,
                     file_size
                 )
-                `
+                `, { count: "exact" }
             )
                 .eq("semester_id", activeSemester.id)
                 .order("date_time", { ascending: false })
                 .order("id", { ascending: false })
                 .range(offset, offset + VIOLATION_BATCH_SIZE - 1);
             if (result.error) throw result.error;
-            if (!Array.isArray(result.data)) throw new Error("Invalid violation data returned.");
-            records.push(...result.data);
-            if (result.data.length < VIOLATION_BATCH_SIZE) break;
+            if (!Array.isArray(result.data) || !Number.isSafeInteger(result.count) ||
+                result.count < 0 || result.data.length > VIOLATION_BATCH_SIZE) {
+                throw new Error("Invalid violation batch returned.");
+            }
+            if (expectedTotal === null) expectedTotal = result.count;
+            if (result.count !== expectedTotal) throw new Error("Violation count changed while loading.");
+            if (!result.data.length && offset < expectedTotal) throw new Error("Premature empty violation batch.");
+            for (const record of result.data) {
+                if (!record || typeof record !== "object" || Array.isArray(record) ||
+                    !["string", "number"].includes(typeof record.id) || !String(record.id).trim() ||
+                    (typeof record.id === "number" && !Number.isFinite(record.id))) {
+                    throw new Error("Invalid violation record returned.");
+                }
+                const id = String(record.id);
+                if (ids.has(id)) throw new Error("Duplicate violation ID returned.");
+                ids.add(id);
+                records.push(record);
+            }
+            offset += result.data.length;
+        } while (offset < expectedTotal);
+        if (records.length !== expectedTotal || ids.size !== expectedTotal) {
+            throw new Error("Incomplete violation dataset returned.");
         }
         allViolations = records;
         violationsComplete = true;
