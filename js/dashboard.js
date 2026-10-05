@@ -513,14 +513,18 @@ async function loadViolations() {
     monthlyViolations = [];
     if (generateReportButton) generateReportButton.disabled = true;
     if (violationsErrorMessage) violationsErrorMessage.hidden = true;
+    renderDashboard();
 
     // Publish only after every batch succeeds; never render a partial report.
     const retrievedViolations = [];
+    const ids = new Set();
+    let expectedTotal = null;
+    let offset = 0;
     try {
         if (!activeSemester) {
             throw new Error("No active semester is configured.");
         }
-        for (let offset = 0; ; offset += VIOLATION_BATCH_SIZE) {
+        do {
             const result = await supabaseClient
                 .from("violations")
             .select(
@@ -550,7 +554,7 @@ async function loadViolations() {
                         )
                     )
                 )
-                `
+                `, { count: "exact" }
             )
                 .eq("semester_id", activeSemester.id)
                 .order("date_time", { ascending: false })
@@ -558,11 +562,28 @@ async function loadViolations() {
                 .range(offset, offset + VIOLATION_BATCH_SIZE - 1);
 
             if (result.error) throw result.error;
-            if (!Array.isArray(result.data)) {
-                throw new Error("The violations query returned invalid data.");
+            if (!Array.isArray(result.data) || !Number.isSafeInteger(result.count) ||
+                result.count < 0 || result.data.length > VIOLATION_BATCH_SIZE) {
+                throw new Error("Invalid violation batch returned.");
             }
-            retrievedViolations.push(...result.data);
-            if (result.data.length < VIOLATION_BATCH_SIZE) break;
+            if (expectedTotal === null) expectedTotal = result.count;
+            if (result.count !== expectedTotal) throw new Error("Violation count changed while loading.");
+            if (!result.data.length && offset < expectedTotal) throw new Error("Premature empty violation batch.");
+            for (const record of result.data) {
+                if (!record || typeof record !== "object" || Array.isArray(record) ||
+                    !["string", "number"].includes(typeof record.id) || !String(record.id).trim() ||
+                    (typeof record.id === "number" && !Number.isFinite(record.id))) {
+                    throw new Error("Invalid violation record returned.");
+                }
+                const id = String(record.id);
+                if (ids.has(id)) throw new Error("Duplicate violation ID returned.");
+                ids.add(id);
+                retrievedViolations.push(record);
+            }
+            offset += result.data.length;
+        } while (offset < expectedTotal);
+        if (retrievedViolations.length !== expectedTotal || ids.size !== expectedTotal) {
+            throw new Error("Incomplete violation dataset returned.");
         }
         allViolations = retrievedViolations;
         violationsComplete = true;
@@ -587,7 +608,11 @@ async function loadViolations() {
 function renderDashboard() {
     if (!violationsComplete) {
         if (totalViolations) totalViolations.textContent = "Unavailable";
-        if (violationTypeCards) violationTypeCards.innerHTML = "";
+        if (violationTypeCards) {
+            violationTypeCards.querySelectorAll("[data-violation-type-card]").forEach(function (card) {
+                card.remove();
+            });
+        }
         if (collegeCards) collegeCards.innerHTML = "";
         if (recentRecords) recentRecords.innerHTML = "";
         if (violationsLoadError) {
@@ -649,6 +674,14 @@ function updateMonthTitle() {
    FILTER BY MONTH
 ===================================================== */
 
+function getManilaMonth(date) {
+    if (!Number.isFinite(date.getTime())) return NaN;
+    return Number(new Intl.DateTimeFormat("en-US", {
+        timeZone: "Asia/Manila",
+        month: "numeric"
+    }).format(date));
+}
+
 function filterByMonth() {
 
     const selectedMonth =
@@ -674,7 +707,7 @@ function filterByMonth() {
 
 
                 return (
-                    date.getMonth() + 1 ===
+                    getManilaMonth(date) ===
                     selectedMonth
                 );
             }
@@ -2161,7 +2194,7 @@ function restoreSelectedMonth() {
 
     reportMonth.value =
         String(
-            new Date().getMonth() + 1
+            getManilaMonth(new Date())
         );
 }
 

@@ -384,14 +384,37 @@
                                     for="violationType"
                                     class="mb-2 block text-sm font-semibold text-gray-700"
                                 >
-                                    Violation *
+                                    Violation Type *
+                                </label>
+
+                                <select
+                                    id="violationType"
+                                    required
+                                    class="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-[#006B21] focus:ring-2 focus:ring-green-100"
+                                >
+                                    <option value="">Select violation type</option>
+                                    <option value="Non-wearing of ID">Non-wearing of ID</option>
+                                    <option value="Jaywalking">Jaywalking</option>
+                                    <option value="Dress Code Violation">Dress Code Violation</option>
+                                    <option value="Traffic/Parking Violation">Traffic/Parking Violation</option>
+                                    <option value="Others">Others</option>
+                                </select>
+
+                            </div>
+
+                            <div id="specifyViolationContainer" class="hidden">
+
+                                <label
+                                    for="specifyViolation"
+                                    class="mb-2 block text-sm font-semibold text-gray-700"
+                                >
+                                    Specify Violation
                                 </label>
 
                                 <input
-                                    id="violationType"
+                                    id="specifyViolation"
                                     type="text"
-                                    required
-                                    placeholder="Enter violation type"
+                                    placeholder="Enter specific violation"
                                     class="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm outline-none transition focus:border-[#006B21] focus:ring-2 focus:ring-green-100"
                                 >
 

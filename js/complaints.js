@@ -740,8 +740,24 @@ async function saveComplaint(event) {
     }
     const retry = savedComplaintId !== null;
     const needsCallSlip = retry || (addCallSlipCheckbox && addCallSlipCheckbox.checked);
+    let incidentTimestamp = null;
     hideMessage();
     if (!retry) {
+        if (incidentDatetime.value) {
+            const value = incidentDatetime.value;
+            const match = /^(\d{4})-(\d{2})-(\d{2})T([01]\d|2[0-3]):([0-5]\d)(?::([0-5]\d)(?:\.(\d{1,3}))?)?$/.exec(value);
+            const incidentDate = new Date(value + "+08:00");
+            const manilaDate = new Date(incidentDate.getTime() + 8 * 60 * 60 * 1000);
+            if (!match || !Number.isFinite(incidentDate.getTime()) ||
+                manilaDate.getUTCFullYear() !== Number(match[1]) ||
+                manilaDate.getUTCMonth() + 1 !== Number(match[2]) ||
+                manilaDate.getUTCDate() !== Number(match[3])) {
+                showMessage("Please enter a valid incident date and time.", false);
+                incidentDatetime.focus();
+                return;
+            }
+            incidentTimestamp = incidentDate.toISOString();
+        }
         if (!whatHappened.value.trim()) {
             showMessage("Please enter what happened.", false);
             whatHappened.focus();
@@ -781,8 +797,7 @@ async function saveComplaint(event) {
                     null,
 
                 p_incident_datetime:
-                    incidentDatetime.value ||
-                    null,
+                    incidentTimestamp,
 
                 p_location:
                     locationInput

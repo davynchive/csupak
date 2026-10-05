@@ -389,9 +389,12 @@ async function loadViolations() {
 
     // Publish only when every batch has succeeded.
     const records = [];
+    const ids = new Set();
+    let expectedTotal = null;
+    let offset = 0;
     try {
         if (!activeSemester) throw new Error("No active semester is configured.");
-        for (let offset = 0; ; offset += VIOLATION_BATCH_SIZE) {
+        do {
             const result = await supabaseClient
                 .from("violations")
             .select(
@@ -427,16 +430,35 @@ async function loadViolations() {
                     file_name,
                     file_size
                 )
-                `
+                `, { count: "exact" }
             )
                 .eq("semester_id", activeSemester.id)
                 .order("date_time", { ascending: false })
                 .order("id", { ascending: false })
                 .range(offset, offset + VIOLATION_BATCH_SIZE - 1);
             if (result.error) throw result.error;
-            if (!Array.isArray(result.data)) throw new Error("Invalid violation data returned.");
-            records.push(...result.data);
-            if (result.data.length < VIOLATION_BATCH_SIZE) break;
+            if (!Array.isArray(result.data) || !Number.isSafeInteger(result.count) ||
+                result.count < 0 || result.data.length > VIOLATION_BATCH_SIZE) {
+                throw new Error("Invalid violation batch returned.");
+            }
+            if (expectedTotal === null) expectedTotal = result.count;
+            if (result.count !== expectedTotal) throw new Error("Violation count changed while loading.");
+            if (!result.data.length && offset < expectedTotal) throw new Error("Premature empty violation batch.");
+            for (const record of result.data) {
+                if (!record || typeof record !== "object" || Array.isArray(record) ||
+                    !["string", "number"].includes(typeof record.id) || !String(record.id).trim() ||
+                    (typeof record.id === "number" && !Number.isFinite(record.id))) {
+                    throw new Error("Invalid violation record returned.");
+                }
+                const id = String(record.id);
+                if (ids.has(id)) throw new Error("Duplicate violation ID returned.");
+                ids.add(id);
+                records.push(record);
+            }
+            offset += result.data.length;
+        } while (offset < expectedTotal);
+        if (records.length !== expectedTotal || ids.size !== expectedTotal) {
+            throw new Error("Incomplete violation dataset returned.");
         }
         allViolations = records;
         violationsComplete = true;
@@ -1007,6 +1029,22 @@ function createViolationCard(
         studentInfo
     );
 
+    const databaseStudentId = student && student.id;
+    const usableStudentId =
+        (typeof databaseStudentId === "string" && /^[1-9]\d*$/.test(databaseStudentId)) ||
+        (typeof databaseStudentId === "number" && Number.isSafeInteger(databaseStudentId) && databaseStudentId > 0);
+    const historyAction = document.createElement(usableStudentId ? "a" : "span");
+    historyAction.className = "inline-flex shrink-0 items-center whitespace-nowrap rounded-lg border px-3 py-2 text-xs font-semibold transition " +
+        (usableStudentId
+            ? "border-green-200 bg-green-50 text-[#006B21] hover:bg-green-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-600 focus-visible:ring-offset-2"
+            : "cursor-not-allowed border-gray-200 bg-gray-100 text-gray-400");
+    historyAction.textContent = usableStudentId ? "View Student History" : "Student History unavailable";
+    if (usableStudentId) {
+        historyAction.href = "history.html?studentId=" + encodeURIComponent(String(databaseStudentId));
+    } else {
+        historyAction.setAttribute("aria-disabled", "true");
+    }
+
 
     /* =================================================
        STATUS
@@ -1097,9 +1135,7 @@ function createViolationCard(
     );
 
 
-    header.appendChild(
-        statusArea
-    );
+    header.appendChild(statusArea);
 
 
     card.appendChild(
@@ -1227,6 +1263,10 @@ function createViolationCard(
        PHOTOS
     ================================================= */
 
+    const bottomActions = document.createElement("div");
+    bottomActions.className = "mt-4 flex flex-wrap items-end justify-between gap-3";
+    historyAction.classList.add("ml-auto");
+
     if (
         violation.violation_photos &&
         violation.violation_photos.length > 0
@@ -1238,8 +1278,8 @@ function createViolationCard(
             );
 
 
-        photoSection.className =
-            "mt-4 border-t border-gray-100 pt-4";
+        bottomActions.classList.add("border-t", "border-gray-100", "pt-4");
+        photoSection.className = "min-w-0 flex-1";
 
 
         const title =
@@ -1316,11 +1356,13 @@ function createViolationCard(
         );
 
 
-        card.appendChild(
+        bottomActions.appendChild(
             photoSection
         );
     }
 
+    bottomActions.appendChild(historyAction);
+    card.appendChild(bottomActions);
 
     return card;
 }
