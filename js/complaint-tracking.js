@@ -83,6 +83,100 @@ const callRemarks =
 
 let currentProfile = null;
 
+const fullDetailsModal = document.getElementById("fullDetailsModal");
+const fullDetailsContent = document.getElementById("fullDetailsContent");
+const closeFullDetailsModal = document.getElementById("closeFullDetailsModal");
+let selectedDetailsComplaint = null;
+let detailsReturnFocus = null;
+let detailsPreviousBodyOverflow = null;
+let detailsPreviousRootOverflow = null;
+
+function closeFullDetails(restoreFocus = true) {
+    if (detailsPreviousBodyOverflow !== null) {
+        document.body.style.overflow = detailsPreviousBodyOverflow;
+        document.documentElement.style.overflow = detailsPreviousRootOverflow;
+        detailsPreviousBodyOverflow = null;
+        detailsPreviousRootOverflow = null;
+    }
+    fullDetailsModal.classList.add("hidden");
+    fullDetailsModal.classList.remove("flex");
+    fullDetailsContent.replaceChildren();
+    selectedDetailsComplaint = null;
+    const previousFocus = detailsReturnFocus;
+    detailsReturnFocus = null;
+    if (restoreFocus && previousFocus && previousFocus.isConnected) previousFocus.focus();
+}
+
+function complaintDetailValue(value) {
+    return value === null || value === undefined || !String(value).trim()
+        ? "Not provided" : String(value);
+}
+
+function formatIncidentDatetime(value) {
+    if (complaintDetailValue(value) === "Not provided") return "Not provided";
+    const date = new Date(value);
+    if (!Number.isFinite(date.getTime())) return "Not provided";
+    return date.toLocaleString("en-PH", {
+        timeZone: "Asia/Manila", year: "numeric", month: "short", day: "numeric",
+        hour: "numeric", minute: "2-digit", hour12: true
+    });
+}
+
+function openFullDetails(complaint, trigger) {
+    if (!currentProfile || currentProfile.role !== "oswe_admin" || !currentPasskey ||
+        complaintsLoading || !complaintsComplete) return;
+    const loadedComplaint = allComplaints.find(item => item.id === complaint.id);
+    if (!loadedComplaint) return;
+    closeFullDetails(false);
+    selectedDetailsComplaint = loadedComplaint;
+    detailsReturnFocus = trigger;
+    const fields = [
+        ["What", loadedComplaint.what_happened],
+        ["Who", loadedComplaint.who_involved],
+        ["When", formatIncidentDatetime(loadedComplaint.incident_datetime)],
+        ["Where", loadedComplaint.location],
+        ["How", loadedComplaint.how_happened],
+        ["Other Details", loadedComplaint.other_details],
+        ["Complainant Name", loadedComplaint.complainant_name],
+        ["Course / Year / Major", loadedComplaint.complainant_course_year_major],
+        ["Student ID", loadedComplaint.complainant_student_id],
+        ["Address", loadedComplaint.complainant_address],
+        ["Residence Telephone", loadedComplaint.complainant_residence_tel],
+        ["Cellphone Number", loadedComplaint.complainant_cellphone],
+        ["Date Reported", loadedComplaint.date_reported ? formatDate(loadedComplaint.date_reported) : null],
+        ["Received By", loadedComplaint.received_by],
+        ["Complaint Status", loadedComplaint.complaint_status]
+    ];
+    for (const [label, value] of fields) {
+        const detail = detailItem(label, complaintDetailValue(value));
+        detail.classList.add("mb-3", "whitespace-pre-wrap", "break-words");
+        fullDetailsContent.appendChild(detail);
+    }
+    fullDetailsModal.classList.remove("hidden");
+    fullDetailsModal.classList.add("flex");
+    detailsPreviousBodyOverflow = document.body.style.overflow;
+    detailsPreviousRootOverflow = document.documentElement.style.overflow;
+    document.body.style.overflow = "hidden";
+    document.documentElement.style.overflow = "hidden";
+    closeFullDetailsModal.focus();
+}
+
+closeFullDetailsModal.addEventListener("click", () => closeFullDetails());
+fullDetailsModal.addEventListener("click", event => {
+    if (event.target === fullDetailsModal) closeFullDetails();
+});
+document.addEventListener("keydown", event => {
+    if (fullDetailsModal.classList.contains("hidden")) return;
+    if (event.key === "Escape") {
+        event.preventDefault();
+        closeFullDetails();
+    } else if (event.key === "Tab") {
+        event.preventDefault();
+        if (document.activeElement === closeFullDetailsModal) fullDetailsContent.focus();
+        else closeFullDetailsModal.focus();
+    }
+});
+
 let currentPasskey = "";
 
 let allComplaints = [];
@@ -199,6 +293,7 @@ async function unlockComplaints(event) {
     if (complaintsLoading) return;
     const passkey = passkeyInput.value.trim();
     if (!passkey) return;
+    closeFullDetails(false);
     const token = ++complaintRequestToken;
     const isCurrent = () => token === complaintRequestToken;
     complaintsLoading = true;
@@ -280,6 +375,7 @@ async function unlockComplaints(event) {
 
 
 function lockComplaints() {
+    closeFullDetails(false);
     complaintRequestToken++;
     complaintsLoading = false;
     complaintsComplete = false;
@@ -670,7 +766,14 @@ function createComplaintCard(
 
 
     actions.className =
-        "mt-5 flex justify-end";
+        "mt-5 flex flex-wrap justify-end gap-2";
+
+    const detailsButton = document.createElement("button");
+    detailsButton.type = "button";
+    detailsButton.className = "rounded-lg border border-green-200 bg-green-50 px-4 py-2.5 text-sm font-semibold text-[#006B21] hover:bg-green-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-600";
+    detailsButton.textContent = "View Full Details";
+    detailsButton.addEventListener("click", () => openFullDetails(complaint, detailsButton));
+    actions.appendChild(detailsButton);
 
 
     const callSlipButton =

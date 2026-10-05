@@ -308,6 +308,29 @@
 
 
 
+    <!-- FULL COMPLAINT DETAILS MODAL -->
+    <div
+        id="fullDetailsModal"
+        class="fixed inset-0 z-50 hidden items-center justify-center bg-black/50 p-4"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="fullDetailsTitle"
+    >
+        <div class="flex w-full max-w-xl flex-col overflow-hidden rounded-2xl bg-white shadow-xl"
+            style="max-height: 90vh; max-height: min(90dvh, calc(100dvh - 2rem));">
+            <div class="flex items-center justify-between border-b border-gray-100 px-6 py-5" style="flex-shrink: 0;">
+                <h3 id="fullDetailsTitle" class="text-lg font-bold text-[#006B21]">Full Complaint Details</h3>
+                <button id="closeFullDetailsModal" type="button" aria-label="Close full complaint details"
+                    class="rounded-lg px-2 text-2xl text-gray-400 hover:text-gray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-600">
+                    &times;
+                </button>
+            </div>
+            <div id="fullDetailsContent" tabindex="0" aria-label="Complaint details"
+                class="p-6 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-600"
+                style="flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain;"></div>
+        </div>
+    </div>
+
     <!-- CALL SLIP MODAL -->
     <div
         id="callSlipModal"
