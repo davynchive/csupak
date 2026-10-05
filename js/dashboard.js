@@ -649,6 +649,14 @@ function updateMonthTitle() {
    FILTER BY MONTH
 ===================================================== */
 
+function getManilaMonth(date) {
+    if (!Number.isFinite(date.getTime())) return NaN;
+    return Number(new Intl.DateTimeFormat("en-US", {
+        timeZone: "Asia/Manila",
+        month: "numeric"
+    }).format(date));
+}
+
 function filterByMonth() {
 
     const selectedMonth =
@@ -674,7 +682,7 @@ function filterByMonth() {
 
 
                 return (
-                    date.getMonth() + 1 ===
+                    getManilaMonth(date) ===
                     selectedMonth
                 );
             }
@@ -2161,7 +2169,7 @@ function restoreSelectedMonth() {
 
     reportMonth.value =
         String(
-            new Date().getMonth() + 1
+            getManilaMonth(new Date())
         );
 }
 
