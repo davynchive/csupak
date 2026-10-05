@@ -149,6 +149,147 @@ let violationsLoading = false;
 let violationsComplete = false;
 let violationsLoadError = null;
 
+const statusHistoryModal = document.getElementById("statusHistoryModal");
+const statusHistoryContent = document.getElementById("statusHistoryContent");
+const closeStatusHistoryModal = document.getElementById("closeStatusHistoryModal");
+let statusHistoryRequestToken = 0;
+let statusHistoryReturnFocus = null;
+let statusHistoryPreviousOverflow = null;
+
+function closeStatusHistory(restoreFocus = true) {
+    statusHistoryRequestToken++;
+    statusHistoryModal.classList.add("hidden");
+    statusHistoryModal.classList.remove("flex");
+    statusHistoryContent.replaceChildren();
+    if (statusHistoryPreviousOverflow !== null) {
+        document.body.style.overflow = statusHistoryPreviousOverflow;
+        statusHistoryPreviousOverflow = null;
+    }
+    const trigger = statusHistoryReturnFocus;
+    statusHistoryReturnFocus = null;
+    if (restoreFocus && trigger && trigger.isConnected) trigger.focus();
+}
+
+function showStatusHistoryMessage(text, error = false) {
+    statusHistoryContent.replaceChildren();
+    const message = document.createElement("p");
+    message.className = error ? "text-sm text-red-600" : "text-sm text-gray-500";
+    if (error) message.setAttribute("role", "alert");
+    message.textContent = text;
+    statusHistoryContent.appendChild(message);
+}
+
+function renderStatusHistory(records) {
+    statusHistoryContent.replaceChildren();
+    if (!records.length) {
+        showStatusHistoryMessage("No status history available.");
+        return;
+    }
+    const labels = { baseline: "Baseline recorded", created: "Record created", status_changed: "Status changed" };
+    const displayText = (value, fallback) => typeof value === "string" && value.trim() ? value : fallback;
+    for (const record of records) {
+        const entry = document.createElement("div");
+        entry.className = "mb-3 rounded-xl border border-gray-100 p-4";
+        entry.style.overflowWrap = "anywhere";
+        const event = document.createElement("p");
+        event.className = "text-sm font-bold text-[#006B21]";
+        event.textContent = Object.prototype.hasOwnProperty.call(labels, record.event_type)
+            ? labels[record.event_type] : displayText(record.event_type, "History event");
+        const transition = document.createElement("p");
+        transition.className = "mt-2 text-sm text-gray-700";
+        transition.textContent = displayText(record.previous_status, "Not recorded") + " → " +
+            displayText(record.new_status, "Not recorded");
+        const actor = document.createElement("p");
+        actor.className = "mt-2 text-xs text-gray-500";
+        actor.textContent = displayText(record.actor_name, "System / Unattributed") + " · " +
+            displayText(record.actor_role, "Role not recorded");
+        const time = document.createElement("p");
+        time.className = "mt-1 text-xs text-gray-500";
+        const date = record.changed_at ? new Date(record.changed_at) : null;
+        time.textContent = date && Number.isFinite(date.getTime())
+            ? formatDateTime(record.changed_at) : "Date/time unavailable";
+        entry.appendChild(event);
+        entry.appendChild(transition);
+        entry.appendChild(actor);
+        entry.appendChild(time);
+        statusHistoryContent.appendChild(entry);
+    }
+}
+
+async function openStatusHistory(violation, trigger) {
+    if (!currentProfile || !["security_office", "oswe_staff", "oswe_admin"].includes(currentProfile.role) ||
+        violationsLoading || !violationsComplete || !allViolations.some(record => record.id === violation.id)) return;
+    closeStatusHistory(false);
+    const token = ++statusHistoryRequestToken;
+    const isCurrent = () => token === statusHistoryRequestToken;
+    statusHistoryReturnFocus = trigger;
+    statusHistoryPreviousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    statusHistoryModal.classList.remove("hidden");
+    statusHistoryModal.classList.add("flex");
+    showStatusHistoryMessage("Loading status history...");
+    closeStatusHistoryModal.focus();
+    const records = [];
+    const ids = new Set();
+    let expectedTotal = null;
+    let offset = 0;
+    try {
+        do {
+            if (!isCurrent()) return;
+            const result = await supabaseClient.from("violation_status_history")
+                .select("id, violation_id, event_type, previous_status, new_status, actor_name, actor_role, changed_at", { count: "exact" })
+                .eq("violation_id", violation.id)
+                .order("changed_at", { ascending: false })
+                .order("id", { ascending: false })
+                .range(offset, offset + VIOLATION_BATCH_SIZE - 1);
+            if (!isCurrent()) return;
+            if (result.error) throw result.error;
+            if (!Array.isArray(result.data) || !Number.isSafeInteger(result.count) ||
+                result.count < 0 || result.data.length > VIOLATION_BATCH_SIZE) {
+                throw new Error("Invalid status history batch.");
+            }
+            if (expectedTotal === null) expectedTotal = result.count;
+            if (result.count !== expectedTotal) throw new Error("Status history count changed while loading.");
+            if (!result.data.length && offset < expectedTotal) throw new Error("Premature empty status history batch.");
+            for (const record of result.data) {
+                if (!record || typeof record !== "object" || Array.isArray(record) ||
+                    !["string", "number"].includes(typeof record.id) || !String(record.id).trim() ||
+                    (typeof record.id === "number" && !Number.isFinite(record.id)) ||
+                    String(record.violation_id) !== String(violation.id)) {
+                    throw new Error("Invalid status history record.");
+                }
+                const id = String(record.id);
+                if (ids.has(id)) throw new Error("Duplicate status history ID.");
+                ids.add(id);
+                records.push(record);
+            }
+            offset += result.data.length;
+        } while (offset < expectedTotal);
+        if (records.length !== expectedTotal || ids.size !== expectedTotal) throw new Error("Incomplete status history.");
+        if (isCurrent()) renderStatusHistory(records);
+    } catch (error) {
+        if (!isCurrent()) return;
+        console.error("Unable to load complete status history:", error);
+        showStatusHistoryMessage("Unable to load complete status history. Close and reopen to try again.", true);
+    }
+}
+
+closeStatusHistoryModal.addEventListener("click", () => closeStatusHistory());
+statusHistoryModal.addEventListener("click", event => {
+    if (event.target === statusHistoryModal) closeStatusHistory();
+});
+document.addEventListener("keydown", event => {
+    if (statusHistoryModal.classList.contains("hidden")) return;
+    if (event.key === "Escape") {
+        event.preventDefault();
+        closeStatusHistory();
+    } else if (event.key === "Tab") {
+        event.preventDefault();
+        if (document.activeElement === closeStatusHistoryModal) statusHistoryContent.focus();
+        else closeStatusHistoryModal.focus();
+    }
+});
+
 
 /* =====================================================
    ROLE NAME
@@ -1265,7 +1406,6 @@ function createViolationCard(
 
     const bottomActions = document.createElement("div");
     bottomActions.className = "mt-4 flex flex-wrap items-end justify-between gap-3";
-    historyAction.classList.add("ml-auto");
 
     if (
         violation.violation_photos &&
@@ -1361,7 +1501,16 @@ function createViolationCard(
         );
     }
 
-    bottomActions.appendChild(historyAction);
+    const historyActions = document.createElement("div");
+    historyActions.className = "ml-auto flex flex-wrap items-center justify-end gap-2";
+    const statusHistoryButton = document.createElement("button");
+    statusHistoryButton.type = "button";
+    statusHistoryButton.className = "rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-xs font-semibold text-[#006B21] hover:bg-green-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-600 focus-visible:ring-offset-2";
+    statusHistoryButton.textContent = "Status History";
+    statusHistoryButton.addEventListener("click", () => openStatusHistory(violation, statusHistoryButton));
+    historyActions.appendChild(statusHistoryButton);
+    historyActions.appendChild(historyAction);
+    bottomActions.appendChild(historyActions);
     card.appendChild(bottomActions);
 
     return card;
