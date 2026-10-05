@@ -177,6 +177,150 @@ document.addEventListener("keydown", event => {
     }
 });
 
+const complaintHistoryModal = document.getElementById("complaintHistoryModal");
+const complaintHistoryContent = document.getElementById("complaintHistoryContent");
+const closeComplaintHistoryModal = document.getElementById("closeComplaintHistoryModal");
+let complaintHistoryRequestToken = 0;
+let complaintHistoryReturnFocus = null;
+let complaintHistoryPreviousOverflow = null;
+
+function closeComplaintHistory(restoreFocus = true) {
+    complaintHistoryRequestToken++;
+    complaintHistoryModal.classList.add("hidden");
+    complaintHistoryModal.classList.remove("flex");
+    complaintHistoryContent.replaceChildren();
+    if (complaintHistoryPreviousOverflow !== null) {
+        document.body.style.overflow = complaintHistoryPreviousOverflow;
+        complaintHistoryPreviousOverflow = null;
+    }
+    const trigger = complaintHistoryReturnFocus;
+    complaintHistoryReturnFocus = null;
+    if (restoreFocus && trigger && trigger.isConnected) trigger.focus();
+}
+
+function showComplaintHistoryMessage(text, error = false) {
+    complaintHistoryContent.replaceChildren();
+    const message = document.createElement("p");
+    message.className = error ? "text-sm text-red-600" : "text-sm text-gray-500";
+    if (error) message.setAttribute("role", "alert");
+    message.textContent = text;
+    complaintHistoryContent.appendChild(message);
+}
+
+function renderComplaintHistory(records) {
+    complaintHistoryContent.replaceChildren();
+    if (!records.length) {
+        showComplaintHistoryMessage("No status history available.");
+        return;
+    }
+    const labels = { baseline: "Baseline recorded", created: "Record created", status_changed: "Status changed" };
+    const displayText = (value, fallback) => typeof value === "string" && value.trim() ? value : fallback;
+    for (const record of records) {
+        const entry = document.createElement("div");
+        entry.className = "mb-3 rounded-xl border border-gray-100 p-4";
+        entry.style.overflowWrap = "anywhere";
+        const event = document.createElement("p");
+        event.className = "text-sm font-bold text-[#006B21]";
+        event.textContent = Object.prototype.hasOwnProperty.call(labels, record.event_type)
+            ? labels[record.event_type] : displayText(record.event_type, "History event");
+        const transition = document.createElement("p");
+        transition.className = "mt-2 text-sm text-gray-700";
+        transition.textContent = displayText(record.previous_status, "Not recorded") + " → " +
+            displayText(record.new_status, "Not recorded");
+        const actor = document.createElement("p");
+        actor.className = "mt-2 text-xs text-gray-500";
+        actor.textContent = displayText(record.actor_name, "System / Unattributed") + " · " +
+            displayText(record.actor_role, "Role not recorded");
+        const time = document.createElement("p");
+        time.className = "mt-1 text-xs text-gray-500";
+        const date = record.changed_at ? new Date(record.changed_at) : null;
+        time.textContent = date && Number.isFinite(date.getTime())
+            ? date.toLocaleString("en-PH", { timeZone: "Asia/Manila", year: "numeric", month: "short", day: "numeric", hour: "numeric", minute: "2-digit", hour12: true }) : "Date/time unavailable";
+        entry.appendChild(event);
+        entry.appendChild(transition);
+        entry.appendChild(actor);
+        entry.appendChild(time);
+        complaintHistoryContent.appendChild(entry);
+    }
+}
+
+async function openComplaintHistory(complaint, trigger) {
+    if (!currentProfile || currentProfile.role !== "oswe_admin" || !currentPasskey ||
+        complaintsLoading || !complaintsComplete || !allComplaints.some(record => record.id === complaint.id)) return;
+    closeComplaintHistory(false);
+    const token = ++complaintHistoryRequestToken;
+    const sessionToken = complaintRequestToken;
+    const isCurrent = () => token === complaintHistoryRequestToken && sessionToken === complaintRequestToken &&
+        currentProfile && currentProfile.role === "oswe_admin" && !!currentPasskey &&
+        !complaintsLoading && complaintsComplete;
+    complaintHistoryReturnFocus = trigger;
+    complaintHistoryPreviousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    complaintHistoryModal.classList.remove("hidden");
+    complaintHistoryModal.classList.add("flex");
+    showComplaintHistoryMessage("Loading...");
+    closeComplaintHistoryModal.focus();
+    const records = [];
+    const ids = new Set();
+    let expectedTotal = null;
+    let offset = 0;
+    try {
+        do {
+            if (!isCurrent()) return;
+            const result = await supabaseClient.rpc("get_complaint_status_history_with_passkey",
+                { entered_passkey: currentPasskey, complaint_id: complaint.id }, { count: "exact" })
+                .order("changed_at", { ascending: false })
+                .order("id", { ascending: false })
+                .range(offset, offset + COMPLAINT_BATCH_SIZE - 1);
+            if (!isCurrent()) return;
+            if (result.error) throw result.error;
+            if (!Array.isArray(result.data) || !Number.isSafeInteger(result.count) ||
+                result.count < 0 || result.data.length > COMPLAINT_BATCH_SIZE) {
+                throw new Error("Invalid status history batch.");
+            }
+            if (expectedTotal === null) expectedTotal = result.count;
+            if (result.count !== expectedTotal) throw new Error("Status history count changed while loading.");
+            if (!result.data.length && offset < expectedTotal) throw new Error("Premature empty status history batch.");
+            for (const record of result.data) {
+                if (!record || typeof record !== "object" || Array.isArray(record) ||
+                    !["string", "number"].includes(typeof record.id) || !String(record.id).trim() ||
+                    (typeof record.id === "number" && !Number.isFinite(record.id)) ||
+                    String(record.complaint_id) !== String(complaint.id)) {
+                    throw new Error("Invalid status history record.");
+                }
+                const id = String(record.id);
+                if (ids.has(id)) throw new Error("Duplicate status history ID.");
+                ids.add(id);
+                records.push(record);
+            }
+            offset += result.data.length;
+        } while (offset < expectedTotal);
+        if (records.length !== expectedTotal || ids.size !== expectedTotal) throw new Error("Incomplete status history.");
+        if (isCurrent()) renderComplaintHistory(records);
+    } catch (error) {
+        if (!isCurrent()) return;
+        showComplaintHistoryMessage("Failed to load status history.", true);
+    }
+}
+
+closeComplaintHistoryModal.addEventListener("click", () => closeComplaintHistory());
+complaintHistoryModal.addEventListener("click", event => {
+    if (event.target === complaintHistoryModal) closeComplaintHistory();
+});
+document.addEventListener("keydown", event => {
+    if (complaintHistoryModal.classList.contains("hidden")) return;
+    if (event.key === "Escape") {
+        event.preventDefault();
+        closeComplaintHistory();
+    } else if (event.key === "Tab") {
+        event.preventDefault();
+        if (document.activeElement === closeComplaintHistoryModal) complaintHistoryContent.focus();
+        else closeComplaintHistoryModal.focus();
+    }
+});
+
+
+
 let currentPasskey = "";
 
 let allComplaints = [];
@@ -293,6 +437,7 @@ async function unlockComplaints(event) {
     if (complaintsLoading) return;
     const passkey = passkeyInput.value.trim();
     if (!passkey) return;
+    closeComplaintHistory(false);
     closeFullDetails(false);
     const token = ++complaintRequestToken;
     const isCurrent = () => token === complaintRequestToken;
@@ -375,6 +520,7 @@ async function unlockComplaints(event) {
 
 
 function lockComplaints() {
+    closeComplaintHistory(false);
     closeFullDetails(false);
     complaintRequestToken++;
     complaintsLoading = false;
@@ -774,6 +920,12 @@ function createComplaintCard(
     detailsButton.textContent = "View Full Details";
     detailsButton.addEventListener("click", () => openFullDetails(complaint, detailsButton));
     actions.appendChild(detailsButton);
+    const historyButton = document.createElement("button");
+    historyButton.type = "button";
+    historyButton.className = "rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-xs font-semibold text-[#006B21] hover:bg-green-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-600";
+    historyButton.textContent = "Status History";
+    historyButton.addEventListener("click", () => openComplaintHistory(complaint, historyButton));
+    actions.appendChild(historyButton);
 
 
     const callSlipButton =
