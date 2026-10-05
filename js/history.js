@@ -1557,8 +1557,12 @@ function formatDateTime(value) {
 
             minute:
                 "2-digit",
+<<<<<<< HEAD
+            hour12: true
+=======
             hour12:
                 true
+>>>>>>> 98dd817d6f21297c5cd7ee39b3e40452a822fd2c
         }
     );
 }

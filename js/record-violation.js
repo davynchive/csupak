@@ -576,6 +576,10 @@ function setCurrentDateTime() {
     });
 
     const parts = formatter.formatToParts(now);
+<<<<<<< HEAD
+
+=======
+>>>>>>> 98dd817d6f21297c5cd7ee39b3e40452a822fd2c
     const values = {};
 
     parts.forEach(part => {
