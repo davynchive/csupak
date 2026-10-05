@@ -118,6 +118,41 @@ const semesterFilter =
         "semesterFilter"
     );
 
+const violationBreakdown = document.getElementById("violationBreakdown");
+
+function renderViolationBreakdown() {
+    violationBreakdown.replaceChildren();
+    if (historyLoading || !historyComplete || !selectedStudentViolations.length) {
+        const message = document.createElement("p");
+        message.className = "text-sm text-gray-500";
+        message.textContent = historyLoading || !historyComplete
+            ? "Unavailable" : "No violation history.";
+        violationBreakdown.appendChild(message);
+        return;
+    }
+    const counts = new Map();
+    for (const violation of selectedStudentViolations) {
+        const storedType = violation.violation_type;
+        const type = typeof storedType === "string" && storedType.trim()
+            ? storedType : "Unspecified";
+        counts.set(type, (counts.get(type) || 0) + 1);
+    }
+    for (const [type, count] of Array.from(counts).sort(([a], [b]) => a.localeCompare(b))) {
+        const card = document.createElement("div");
+        card.className = "flex min-w-0 items-start gap-3 rounded-lg border border-gray-100 bg-[#F3F7F3] px-3 py-2";
+        const number = document.createElement("p");
+        number.className = "shrink-0 text-2xl font-bold text-[#006B21]";
+        number.textContent = String(count);
+        const label = document.createElement("p");
+        label.className = "min-w-0 text-xs font-medium text-gray-600";
+        label.style.overflowWrap = "anywhere";
+        label.textContent = type;
+        card.appendChild(number);
+        card.appendChild(label);
+        violationBreakdown.appendChild(card);
+    }
+}
+
 const historyRecords =
     document.getElementById(
         "historyRecords"
@@ -457,6 +492,7 @@ async function searchStudents() {
     historyLoadError = null;
     semesterFilter.disabled = true;
     totalViolationCount.textContent = "Unavailable";
+    renderViolationBreakdown();
     completeSearchResults = [];
     searchComplete = false;
     searchLoadError = null;
@@ -795,6 +831,7 @@ async function loadStudentHistory(student) {
     semesterFilter.disabled = true;
     displayStudentSummary(student);
     totalViolationCount.textContent = "Unavailable";
+    renderViolationBreakdown();
     studentHistorySection.classList.remove("hidden");
     renderHistory();
     try {
@@ -836,6 +873,7 @@ async function loadStudentHistory(student) {
     } finally {
         if (isCurrent()) {
             historyLoading = false;
+            renderViolationBreakdown();
             renderHistory();
         }
     }
