@@ -65,6 +65,19 @@ const violationType =
         "violationType"
     );
 
+const specifyViolationContainer =
+    document.getElementById("specifyViolationContainer");
+
+const specifyViolation =
+    document.getElementById("specifyViolation");
+
+function updateSpecifyViolation() {
+    const isOther = violationType.value === "Others";
+    specifyViolationContainer.classList.toggle("hidden", !isOther);
+    specifyViolation.required = isOther;
+    if (!isOther) specifyViolation.value = "";
+}
+
 const locationInput =
     document.getElementById(
         "location"
@@ -941,9 +954,9 @@ async function createViolation(
                     activeSemester.id,
 
                 violation_type:
-                    violationType
-                        .value
-                        .trim(),
+                    violationType.value === "Others"
+                        ? specifyViolation.value.trim()
+                        : violationType.value,
 
                 location:
                     locationInput
@@ -1201,7 +1214,7 @@ async function saveViolation(
         ) {
 
             showMessage(
-                "Please enter the violation.",
+                "Please select a violation type.",
                 false
             );
 
@@ -1209,6 +1222,18 @@ async function saveViolation(
             violationType.focus();
 
 
+            return;
+        }
+
+        if (violationType.value === "Others" && !specifyViolation.value.trim()) {
+            showMessage("Please specify the violation.", false);
+            specifyViolation.focus();
+            return;
+        }
+
+        if (violationType.value === "Others" && specifyViolation.value.trim() === "Others") {
+            showMessage("Please enter a specific violation instead of Others.", false);
+            specifyViolation.focus();
             return;
         }
 
@@ -1309,7 +1334,7 @@ function showPhotoFailure(stage) {
 
 function updateFormState() {
     const retryMode = savedViolationId !== null;
-    [studentId, studentName, courseId, yearLevel, violationType,
+    [studentId, studentName, courseId, yearLevel, violationType, specifyViolation,
         locationInput, caughtBy, dateTime, remarks].forEach(function (field) {
         field.disabled = isSaving || retryMode;
     });
@@ -1324,6 +1349,9 @@ function updateFormState() {
 function resetViolationForm() {
     savedViolationId = null;
     violationForm.reset();
+    violationType.value = "";
+    specifyViolation.value = "";
+    updateSpecifyViolation();
     removeSelectedPhoto(true);
     setCurrentDateTime();
     updateFormState();
@@ -1402,6 +1430,8 @@ photoInput.addEventListener(
    EVENTS
 ===================================================== */
 
+violationType.addEventListener("change", updateSpecifyViolation);
+
 removePhotoButton.addEventListener(
     "click",
     removeSelectedPhoto
@@ -1434,6 +1464,8 @@ logoutButton.addEventListener(
 ===================================================== */
 
 async function initialize() {
+
+    updateSpecifyViolation();
 
     setCurrentDateTime();
 
