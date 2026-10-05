@@ -771,6 +771,55 @@ function detailItem(
     return div;
 }
 
+function showStatusNotification() {
+    const notification =
+        document.getElementById("statusNotification");
+
+    if (!notification) {
+        console.error("statusNotification not found.");
+        return;
+    }
+
+    notification.classList.remove("hidden");
+    notification.style.display = "block";
+
+    notification.classList.remove("show");
+
+    void notification.offsetWidth;
+
+    notification.classList.add("show");
+
+    setTimeout(function () {
+        notification.classList.remove("show");
+        notification.classList.add("hidden");
+        notification.style.display = "none";
+    }, 2000);
+}
+
+function showStatusNotification() {
+    const notification =
+        document.getElementById("statusNotification");
+
+    if (!notification) {
+        console.error("statusNotification not found.");
+        return;
+    }
+
+    notification.classList.remove("hidden");
+    notification.style.display = "block";
+
+    notification.classList.remove("show");
+
+    void notification.offsetWidth;
+
+    notification.classList.add("show");
+
+    setTimeout(function () {
+        notification.classList.remove("show");
+        notification.classList.add("hidden");
+        notification.style.display = "none";
+    }, 2000);
+}
 
 async function updateStatus(
     complaintId,
@@ -827,6 +876,8 @@ async function updateStatus(
         complaint.complaint_status =
             newStatus;
     }
+
+    showStatusNotification();
 }
 
 

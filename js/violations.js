@@ -74,6 +74,8 @@ const recordCount =
         "recordCount"
     );
 
+const statusNotification =
+    document.getElementById("statusNotification");
 
 /* =====================================================
    PHOTO MODAL
@@ -99,6 +101,36 @@ const closePhotoModal =
         "closePhotoModal"
     );
 
+
+
+
+function showStatusNotification() {
+    const notification =
+        document.getElementById("statusNotification");
+
+    if (!notification) {
+        console.error("statusNotification not found.");
+        return;
+    }
+
+    // Show notification
+    notification.classList.remove("hidden");
+    notification.style.display = "block";
+
+    // Restart animation
+    notification.classList.remove("show");
+
+    void notification.offsetWidth;
+
+    notification.classList.add("show");
+
+    // Hide after animation
+    setTimeout(function () {
+        notification.classList.remove("show");
+        notification.classList.add("hidden");
+        notification.style.display = "none";
+    }, 2000);
+}
 
 /* =====================================================
    GLOBAL DATA
@@ -1455,46 +1487,53 @@ function createStatusSelect(
    UPDATE STATUS
 ===================================================== */
 
+/* =====================================================
+   UPDATE STATUS
+===================================================== */
+
 async function updateViolationStatus(
     violationId,
     newStatus
 ) {
 
-    /*
-        Frontend guard.
-
-        Database RLS also prevents
-        Security Office from updating.
-    */
+    console.log(
+        "UPDATE STATUS FUNCTION CALLED"
+    );
 
     if (
-        currentProfile.role !==
-            "oswe_admin" &&
-        currentProfile.role !==
-            "oswe_staff"
+        currentProfile.role !== "oswe_admin" &&
+        currentProfile.role !== "oswe_staff"
     ) {
 
         alert(
             "You do not have permission to change the violation status."
         );
 
-
         return false;
     }
 
+    console.log(
+        "Updating:",
+        violationId,
+        "to:",
+        newStatus
+    );
 
     const result =
         await supabaseClient
             .from("violations")
             .update({
-                status:
-                    newStatus
+                status: newStatus
             })
             .eq(
                 "id",
                 violationId
             );
 
+    console.log(
+        "SUPABASE RESULT:",
+        result
+    );
 
     if (result.error) {
 
@@ -1503,20 +1542,20 @@ async function updateViolationStatus(
             result.error
         );
 
-
         alert(
             "Unable to update the violation status."
         );
 
-
         return false;
     }
 
+    console.log(
+        "STATUS UPDATED SUCCESSFULLY"
+    );
 
     const record =
         allViolations.find(
             function (violation) {
-
                 return (
                     violation.id ===
                     violationId
@@ -1524,19 +1563,17 @@ async function updateViolationStatus(
             }
         );
 
-
     if (record) {
-
-        record.status =
-            newStatus;
+        record.status = newStatus;
     }
-
 
     renderViolations();
 
+    // Show notification ONLY ONCE
+    showStatusNotification();
+
     return true;
 }
-
 
 /* =====================================================
    VIEW PRIVATE PHOTO

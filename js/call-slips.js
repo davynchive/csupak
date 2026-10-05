@@ -115,6 +115,68 @@ const rescheduleRemarks =
 
 
 /* =====================================================
+   STATUS NOTIFICATION
+===================================================== */
+
+function showStatusNotification() {
+
+    const notification =
+        document.getElementById(
+            "statusNotification"
+        );
+
+
+    if (!notification) {
+
+        console.error(
+            "statusNotification not found."
+        );
+
+        return;
+    }
+
+
+    notification.classList.remove(
+        "hidden"
+    );
+
+    notification.style.display =
+        "block";
+
+
+    notification.classList.remove(
+        "show"
+    );
+
+
+    void notification.offsetWidth;
+
+
+    notification.classList.add(
+        "show"
+    );
+
+
+    setTimeout(
+        function () {
+
+            notification.classList.remove(
+                "show"
+            );
+
+            notification.classList.add(
+                "hidden"
+            );
+
+            notification.style.display =
+                "none";
+
+        },
+        2000
+    );
+}
+
+/* =====================================================
    GLOBAL DATA
 ===================================================== */
 
@@ -1362,14 +1424,16 @@ async function updateInterviewStatus(
 
     if (record) {
 
-        record.interview_status =
-            statusValue;
-    }
+    record.interview_status =
+        statusValue;
+}
 
 
-    updateSummary();
+updateSummary();
 
-    renderCallSlips();
+renderCallSlips();
+
+showStatusNotification();
 }
 
 
@@ -1497,8 +1561,9 @@ async function saveReschedule(
 
     closeReschedule();
 
+await loadCallSlips();
 
-    await loadCallSlips();
+showStatusNotification();
 }
 
 

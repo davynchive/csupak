@@ -1264,3 +1264,65 @@
     }
   }
 }
+
+/* =====================================================
+   STATUS NOTIFICATION
+===================================================== */
+
+/* =====================================================
+   STATUS NOTIFICATION
+===================================================== */
+
+#statusNotification {
+    position: fixed !important;
+    top: 80px !important;
+    left: 50% !important;
+
+    z-index: 999999 !important;
+
+    padding: 12px 20px;
+    border-radius: 12px;
+
+    background-color: rgba(100, 171, 122, 0.245);
+    border: 2px solid rgba(99, 218, 137, 0.8);
+    color: #006B21;
+
+    font-size: 14px;
+    font-weight: 600;
+
+    opacity: 0;
+    transform: translate(-50%, -150px);
+
+    pointer-events: none;
+}
+
+#statusNotification.show {
+    animation: notificationSlide 2s ease-in-out forwards;
+}
+
+@keyframes notificationSlide {
+
+    /* Start above the page */
+    0% {
+        opacity: 0;
+        transform: translate(-50%, -150px);
+    }
+
+    /* Slide down to upper center */
+    30% {
+        opacity: 1;
+        transform: translate(-50%, 0);
+    }
+
+    /* Stay there */
+    65% {
+        opacity: 1;
+        transform: translate(-50%, 0);
+    }
+
+    /* Slide back up and fade */
+    100% {
+        opacity: 0;
+        transform: translate(-50%, -150px);
+    }
+}
