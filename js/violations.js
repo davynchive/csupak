@@ -997,6 +997,22 @@ function createViolationCard(
         studentInfo
     );
 
+    const databaseStudentId = student && student.id;
+    const usableStudentId =
+        (typeof databaseStudentId === "string" && /^[1-9]\d*$/.test(databaseStudentId)) ||
+        (typeof databaseStudentId === "number" && Number.isSafeInteger(databaseStudentId) && databaseStudentId > 0);
+    const historyAction = document.createElement(usableStudentId ? "a" : "span");
+    historyAction.className = "inline-flex shrink-0 items-center whitespace-nowrap rounded-lg border px-3 py-2 text-xs font-semibold transition " +
+        (usableStudentId
+            ? "border-green-200 bg-green-50 text-[#006B21] hover:bg-green-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-600 focus-visible:ring-offset-2"
+            : "cursor-not-allowed border-gray-200 bg-gray-100 text-gray-400");
+    historyAction.textContent = usableStudentId ? "View Student History" : "Student History unavailable";
+    if (usableStudentId) {
+        historyAction.href = "history.html?studentId=" + encodeURIComponent(String(databaseStudentId));
+    } else {
+        historyAction.setAttribute("aria-disabled", "true");
+    }
+
 
     /* =================================================
        STATUS
@@ -1087,9 +1103,7 @@ function createViolationCard(
     );
 
 
-    header.appendChild(
-        statusArea
-    );
+    header.appendChild(statusArea);
 
 
     card.appendChild(
@@ -1217,6 +1231,10 @@ function createViolationCard(
        PHOTOS
     ================================================= */
 
+    const bottomActions = document.createElement("div");
+    bottomActions.className = "mt-4 flex flex-wrap items-end justify-between gap-3";
+    historyAction.classList.add("ml-auto");
+
     if (
         violation.violation_photos &&
         violation.violation_photos.length > 0
@@ -1228,8 +1246,8 @@ function createViolationCard(
             );
 
 
-        photoSection.className =
-            "mt-4 border-t border-gray-100 pt-4";
+        bottomActions.classList.add("border-t", "border-gray-100", "pt-4");
+        photoSection.className = "min-w-0 flex-1";
 
 
         const title =
@@ -1306,11 +1324,13 @@ function createViolationCard(
         );
 
 
-        card.appendChild(
+        bottomActions.appendChild(
             photoSection
         );
     }
 
+    bottomActions.appendChild(historyAction);
+    card.appendChild(bottomActions);
 
     return card;
 }

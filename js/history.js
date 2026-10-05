@@ -1576,9 +1576,57 @@ logoutButton.addEventListener(
    INITIALIZE
 ===================================================== */
 
+async function loadStudentFromUrl() {
+    const values = new URLSearchParams(window.location.search).getAll("studentId");
+    if (!values.length) return;
+    if (values.length !== 1 || !/^[1-9]\d*$/.test(values[0])) {
+        showSearchMessage("Invalid student history link. Search for a student below.");
+        return;
+    }
+    const studentId = values[0];
+    const token = ++historyRequestToken;
+    const isCurrent = () => token === historyRequestToken;
+    hideSearchMessage();
+    try {
+        const result = await supabaseClient.from("students")
+            .select(`
+                id,
+                student_id,
+                student_name,
+                course_id,
+                year_level,
+                courses (
+                    id,
+                    course_code,
+                    course_name,
+                    colleges (
+                        id,
+                        college_code,
+                        college_name
+                    )
+                )
+            `)
+            .eq("id", studentId)
+            .maybeSingle();
+        if (!isCurrent()) return;
+        if (result.error) throw result.error;
+        if (!result.data) {
+            showSearchMessage("Student not found or unavailable.");
+            return;
+        }
+        if (String(result.data.id) !== studentId) throw new Error("Unexpected student returned.");
+        await loadStudentHistory(result.data);
+    } catch (error) {
+        if (!isCurrent()) return;
+        console.error("Unable to load student from history link:", error);
+        showSearchMessage("Unable to load the linked student. Search for a student or reload to try again.");
+    }
+}
+
 async function initialize() {
 
-    await loadProfile();
+    if (!await loadProfile()) return;
+    await loadStudentFromUrl();
 }
 
 
