@@ -154,6 +154,13 @@ let allViolations = [];
 
 let monthlyViolations = [];
 
+const VIOLATION_BATCH_SIZE = 500;
+let violationsComplete = false;
+let violationsLoadError = null;
+let violationsErrorMessage = null;
+
+if (generateReportButton) generateReportButton.disabled = true;
+
 
 /* =====================================================
    LOAD PROFILE
@@ -500,7 +507,15 @@ async function loadActiveSemester() {
 ===================================================== */
 
 async function loadViolations() {
+    violationsComplete = false;
+    violationsLoadError = null;
+    allViolations = [];
+    monthlyViolations = [];
+    if (generateReportButton) generateReportButton.disabled = true;
+    if (violationsErrorMessage) violationsErrorMessage.hidden = true;
+    renderDashboard();
 
+<<<<<<< HEAD
     if (!activeSemester) {
         return;
     }
@@ -509,6 +524,20 @@ async function loadViolations() {
     const result =
         await supabaseClient
             .from("violations")
+=======
+    // Publish only after every batch succeeds; never render a partial report.
+    const retrievedViolations = [];
+    const ids = new Set();
+    let expectedTotal = null;
+    let offset = 0;
+    try {
+        if (!activeSemester) {
+            throw new Error("No active semester is configured.");
+        }
+        do {
+            const result = await supabaseClient
+                .from("violations")
+>>>>>>> 98dd817d6f21297c5cd7ee39b3e40452a822fd2c
             .select(
                 `
                 id,
@@ -536,43 +565,50 @@ async function loadViolations() {
                         )
                     )
                 )
-                `
+                `, { count: "exact" }
             )
-            .eq(
-                "semester_id",
-                activeSemester.id
-            )
-            .order(
-                "date_time",
-                {
-                    ascending: false
+                .eq("semester_id", activeSemester.id)
+                .order("date_time", { ascending: false })
+                .order("id", { ascending: false })
+                .range(offset, offset + VIOLATION_BATCH_SIZE - 1);
+
+            if (result.error) throw result.error;
+            if (!Array.isArray(result.data) || !Number.isSafeInteger(result.count) ||
+                result.count < 0 || result.data.length > VIOLATION_BATCH_SIZE) {
+                throw new Error("Invalid violation batch returned.");
+            }
+            if (expectedTotal === null) expectedTotal = result.count;
+            if (result.count !== expectedTotal) throw new Error("Violation count changed while loading.");
+            if (!result.data.length && offset < expectedTotal) throw new Error("Premature empty violation batch.");
+            for (const record of result.data) {
+                if (!record || typeof record !== "object" || Array.isArray(record) ||
+                    !["string", "number"].includes(typeof record.id) || !String(record.id).trim() ||
+                    (typeof record.id === "number" && !Number.isFinite(record.id))) {
+                    throw new Error("Invalid violation record returned.");
                 }
-            );
-
-
-    if (result.error) {
-
-        console.error(
-            "Unable to load violations:",
-            result.error
-        );
-
-
-        allViolations = [];
-
-
+                const id = String(record.id);
+                if (ids.has(id)) throw new Error("Duplicate violation ID returned.");
+                ids.add(id);
+                retrievedViolations.push(record);
+            }
+            offset += result.data.length;
+        } while (offset < expectedTotal);
+        if (retrievedViolations.length !== expectedTotal || ids.size !== expectedTotal) {
+            throw new Error("Incomplete violation dataset returned.");
+        }
+        allViolations = retrievedViolations;
+        violationsComplete = true;
+        if (generateReportButton) generateReportButton.disabled = false;
         renderDashboard();
-
-
-        return;
+    } catch (error) {
+        console.error("Unable to load complete violation data:", error);
+        violationsComplete = false;
+        violationsLoadError = "Unable to load complete violation data. Dashboard totals and reports are unavailable. Reload the page to try again.";
+        allViolations = [];
+        monthlyViolations = [];
+        if (generateReportButton) generateReportButton.disabled = true;
+        renderDashboard();
     }
-
-
-    allViolations =
-        result.data || [];
-
-
-    renderDashboard();
 }
 
 
@@ -581,6 +617,28 @@ async function loadViolations() {
 ===================================================== */
 
 function renderDashboard() {
+    if (!violationsComplete) {
+        if (totalViolations) totalViolations.textContent = "Unavailable";
+        if (violationTypeCards) {
+            violationTypeCards.querySelectorAll("[data-violation-type-card]").forEach(function (card) {
+                card.remove();
+            });
+        }
+        if (collegeCards) collegeCards.innerHTML = "";
+        if (recentRecords) recentRecords.innerHTML = "";
+        if (violationsLoadError) {
+            if (!violationsErrorMessage) {
+                violationsErrorMessage = document.createElement("div");
+                violationsErrorMessage.className = "mt-4 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700";
+                violationsErrorMessage.setAttribute("role", "alert");
+                welcomeMessage.insertAdjacentElement("afterend", violationsErrorMessage);
+            }
+            violationsErrorMessage.textContent = violationsLoadError;
+            violationsErrorMessage.hidden = false;
+        }
+        return;
+    }
+
 
     updateMonthTitle();
 
@@ -627,6 +685,14 @@ function updateMonthTitle() {
    FILTER BY MONTH
 ===================================================== */
 
+function getManilaMonth(date) {
+    if (!Number.isFinite(date.getTime())) return NaN;
+    return Number(new Intl.DateTimeFormat("en-US", {
+        timeZone: "Asia/Manila",
+        month: "numeric"
+    }).format(date));
+}
+
 function filterByMonth() {
 
     const selectedMonth =
@@ -652,7 +718,7 @@ function filterByMonth() {
 
 
                 return (
-                    date.getMonth() + 1 ===
+                    getManilaMonth(date) ===
                     selectedMonth
                 );
             }
@@ -1720,8 +1786,10 @@ function generateReport() {
 
     if (
         !currentProfile ||
-        currentProfile.role ===
-            "security_office"
+        (
+            currentProfile.role !== "oswe_admin" &&
+            currentProfile.role !== "oswe_staff"
+        )
     ) {
 
         alert(
@@ -1731,6 +1799,11 @@ function generateReport() {
         return;
     }
 
+
+    if (!violationsComplete) {
+        alert("Complete violation data is unavailable. Wait for loading to finish or reload the page before generating a report.");
+        return;
+    }
 
     const monthOption =
         reportMonth.options[
@@ -2132,7 +2205,7 @@ function restoreSelectedMonth() {
 
     reportMonth.value =
         String(
-            new Date().getMonth() + 1
+            getManilaMonth(new Date())
         );
 }
 
@@ -2282,3 +2355,5 @@ async function initializeDashboard() {
 
 
 initializeDashboard();
+
+//FIX

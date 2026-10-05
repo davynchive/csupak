@@ -74,6 +74,8 @@ const recordCount =
         "recordCount"
     );
 
+const statusNotification =
+    document.getElementById("statusNotification");
 
 /* =====================================================
    PHOTO MODAL
@@ -100,6 +102,36 @@ const closePhotoModal =
     );
 
 
+
+
+function showStatusNotification() {
+    const notification =
+        document.getElementById("statusNotification");
+
+    if (!notification) {
+        console.error("statusNotification not found.");
+        return;
+    }
+
+    // Show notification
+    notification.classList.remove("hidden");
+    notification.style.display = "block";
+
+    // Restart animation
+    notification.classList.remove("show");
+
+    void notification.offsetWidth;
+
+    notification.classList.add("show");
+
+    // Hide after animation
+    setTimeout(function () {
+        notification.classList.remove("show");
+        notification.classList.add("hidden");
+        notification.style.display = "none";
+    }, 2000);
+}
+
 /* =====================================================
    GLOBAL DATA
 ===================================================== */
@@ -109,6 +141,154 @@ let currentProfile = null;
 let activeSemester = null;
 
 let allViolations = [];
+
+const VIOLATION_BATCH_SIZE = 500;
+const VIOLATION_PAGE_SIZE = 25;
+let currentViolationPage = 1;
+let violationsLoading = false;
+let violationsComplete = false;
+let violationsLoadError = null;
+
+const statusHistoryModal = document.getElementById("statusHistoryModal");
+const statusHistoryContent = document.getElementById("statusHistoryContent");
+const closeStatusHistoryModal = document.getElementById("closeStatusHistoryModal");
+let statusHistoryRequestToken = 0;
+let statusHistoryReturnFocus = null;
+let statusHistoryPreviousOverflow = null;
+
+function closeStatusHistory(restoreFocus = true) {
+    statusHistoryRequestToken++;
+    statusHistoryModal.classList.add("hidden");
+    statusHistoryModal.classList.remove("flex");
+    statusHistoryContent.replaceChildren();
+    if (statusHistoryPreviousOverflow !== null) {
+        document.body.style.overflow = statusHistoryPreviousOverflow;
+        statusHistoryPreviousOverflow = null;
+    }
+    const trigger = statusHistoryReturnFocus;
+    statusHistoryReturnFocus = null;
+    if (restoreFocus && trigger && trigger.isConnected) trigger.focus();
+}
+
+function showStatusHistoryMessage(text, error = false) {
+    statusHistoryContent.replaceChildren();
+    const message = document.createElement("p");
+    message.className = error ? "text-sm text-red-600" : "text-sm text-gray-500";
+    if (error) message.setAttribute("role", "alert");
+    message.textContent = text;
+    statusHistoryContent.appendChild(message);
+}
+
+function renderStatusHistory(records) {
+    statusHistoryContent.replaceChildren();
+    if (!records.length) {
+        showStatusHistoryMessage("No status history available.");
+        return;
+    }
+    const labels = { baseline: "Baseline recorded", created: "Record created", status_changed: "Status changed" };
+    const displayText = (value, fallback) => typeof value === "string" && value.trim() ? value : fallback;
+    for (const record of records) {
+        const entry = document.createElement("div");
+        entry.className = "mb-3 rounded-xl border border-gray-100 p-4";
+        entry.style.overflowWrap = "anywhere";
+        const event = document.createElement("p");
+        event.className = "text-sm font-bold text-[#006B21]";
+        event.textContent = Object.prototype.hasOwnProperty.call(labels, record.event_type)
+            ? labels[record.event_type] : displayText(record.event_type, "History event");
+        const transition = document.createElement("p");
+        transition.className = "mt-2 text-sm text-gray-700";
+        transition.textContent = displayText(record.previous_status, "Not recorded") + " → " +
+            displayText(record.new_status, "Not recorded");
+        const actor = document.createElement("p");
+        actor.className = "mt-2 text-xs text-gray-500";
+        actor.textContent = displayText(record.actor_name, "System / Unattributed") + " · " +
+            displayText(record.actor_role, "Role not recorded");
+        const time = document.createElement("p");
+        time.className = "mt-1 text-xs text-gray-500";
+        const date = record.changed_at ? new Date(record.changed_at) : null;
+        time.textContent = date && Number.isFinite(date.getTime())
+            ? formatDateTime(record.changed_at) : "Date/time unavailable";
+        entry.appendChild(event);
+        entry.appendChild(transition);
+        entry.appendChild(actor);
+        entry.appendChild(time);
+        statusHistoryContent.appendChild(entry);
+    }
+}
+
+async function openStatusHistory(violation, trigger) {
+    if (!currentProfile || !["security_office", "oswe_staff", "oswe_admin"].includes(currentProfile.role) ||
+        violationsLoading || !violationsComplete || !allViolations.some(record => record.id === violation.id)) return;
+    closeStatusHistory(false);
+    const token = ++statusHistoryRequestToken;
+    const isCurrent = () => token === statusHistoryRequestToken;
+    statusHistoryReturnFocus = trigger;
+    statusHistoryPreviousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    statusHistoryModal.classList.remove("hidden");
+    statusHistoryModal.classList.add("flex");
+    showStatusHistoryMessage("Loading status history...");
+    closeStatusHistoryModal.focus();
+    const records = [];
+    const ids = new Set();
+    let expectedTotal = null;
+    let offset = 0;
+    try {
+        do {
+            if (!isCurrent()) return;
+            const result = await supabaseClient.from("violation_status_history")
+                .select("id, violation_id, event_type, previous_status, new_status, actor_name, actor_role, changed_at", { count: "exact" })
+                .eq("violation_id", violation.id)
+                .order("changed_at", { ascending: false })
+                .order("id", { ascending: false })
+                .range(offset, offset + VIOLATION_BATCH_SIZE - 1);
+            if (!isCurrent()) return;
+            if (result.error) throw result.error;
+            if (!Array.isArray(result.data) || !Number.isSafeInteger(result.count) ||
+                result.count < 0 || result.data.length > VIOLATION_BATCH_SIZE) {
+                throw new Error("Invalid status history batch.");
+            }
+            if (expectedTotal === null) expectedTotal = result.count;
+            if (result.count !== expectedTotal) throw new Error("Status history count changed while loading.");
+            if (!result.data.length && offset < expectedTotal) throw new Error("Premature empty status history batch.");
+            for (const record of result.data) {
+                if (!record || typeof record !== "object" || Array.isArray(record) ||
+                    !["string", "number"].includes(typeof record.id) || !String(record.id).trim() ||
+                    (typeof record.id === "number" && !Number.isFinite(record.id)) ||
+                    String(record.violation_id) !== String(violation.id)) {
+                    throw new Error("Invalid status history record.");
+                }
+                const id = String(record.id);
+                if (ids.has(id)) throw new Error("Duplicate status history ID.");
+                ids.add(id);
+                records.push(record);
+            }
+            offset += result.data.length;
+        } while (offset < expectedTotal);
+        if (records.length !== expectedTotal || ids.size !== expectedTotal) throw new Error("Incomplete status history.");
+        if (isCurrent()) renderStatusHistory(records);
+    } catch (error) {
+        if (!isCurrent()) return;
+        console.error("Unable to load complete status history:", error);
+        showStatusHistoryMessage("Unable to load complete status history. Close and reopen to try again.", true);
+    }
+}
+
+closeStatusHistoryModal.addEventListener("click", () => closeStatusHistory());
+statusHistoryModal.addEventListener("click", event => {
+    if (event.target === statusHistoryModal) closeStatusHistory();
+});
+document.addEventListener("keydown", event => {
+    if (statusHistoryModal.classList.contains("hidden")) return;
+    if (event.key === "Escape") {
+        event.preventDefault();
+        closeStatusHistory();
+    } else if (event.key === "Tab") {
+        event.preventDefault();
+        if (document.activeElement === closeStatusHistoryModal) statusHistoryContent.focus();
+        else closeStatusHistoryModal.focus();
+    }
+});
 
 
 /* =====================================================
@@ -339,32 +519,25 @@ async function loadActiveSemester() {
 ===================================================== */
 
 async function loadViolations() {
+    if (violationsLoading) return;
+    violationsLoading = true;
+    violationsComplete = false;
+    violationsLoadError = null;
+    allViolations = [];
+    currentViolationPage = 1;
+    refreshButton.disabled = true;
+    renderViolations();
 
-    violationRecords.innerHTML =
-        "<div class=\"rounded-xl bg-gray-50 px-4 py-10 text-center\">" +
-            "<p class=\"text-sm text-gray-500\">" +
-                "Loading violation records..." +
-            "</p>" +
-        "</div>";
-
-
-    if (!activeSemester) {
-
-        violationRecords.innerHTML =
-            "<div class=\"rounded-xl bg-red-50 px-4 py-10 text-center\">" +
-                "<p class=\"text-sm text-red-600\">" +
-                    "No active semester is configured." +
-                "</p>" +
-            "</div>";
-
-
-        return;
-    }
-
-
-    const result =
-        await supabaseClient
-            .from("violations")
+    // Publish only when every batch has succeeded.
+    const records = [];
+    const ids = new Set();
+    let expectedTotal = null;
+    let offset = 0;
+    try {
+        if (!activeSemester) throw new Error("No active semester is configured.");
+        do {
+            const result = await supabaseClient
+                .from("violations")
             .select(
                 `
                 id,
@@ -398,47 +571,49 @@ async function loadViolations() {
                     file_name,
                     file_size
                 )
-                `
+                `, { count: "exact" }
             )
-            .eq(
-                "semester_id",
-                activeSemester.id
-            )
-            .order(
-                "date_time",
-                {
-                    ascending: false
+                .eq("semester_id", activeSemester.id)
+                .order("date_time", { ascending: false })
+                .order("id", { ascending: false })
+                .range(offset, offset + VIOLATION_BATCH_SIZE - 1);
+            if (result.error) throw result.error;
+            if (!Array.isArray(result.data) || !Number.isSafeInteger(result.count) ||
+                result.count < 0 || result.data.length > VIOLATION_BATCH_SIZE) {
+                throw new Error("Invalid violation batch returned.");
+            }
+            if (expectedTotal === null) expectedTotal = result.count;
+            if (result.count !== expectedTotal) throw new Error("Violation count changed while loading.");
+            if (!result.data.length && offset < expectedTotal) throw new Error("Premature empty violation batch.");
+            for (const record of result.data) {
+                if (!record || typeof record !== "object" || Array.isArray(record) ||
+                    !["string", "number"].includes(typeof record.id) || !String(record.id).trim() ||
+                    (typeof record.id === "number" && !Number.isFinite(record.id))) {
+                    throw new Error("Invalid violation record returned.");
                 }
-            );
-
-
-    if (result.error) {
-
-        console.error(
-            "Unable to load violations:",
-            result.error
-        );
-
-
-        violationRecords.innerHTML =
-            "<div class=\"rounded-xl bg-red-50 px-4 py-10 text-center\">" +
-                "<p class=\"text-sm text-red-600\">" +
-                    "Unable to load violation records." +
-                "</p>" +
-            "</div>";
-
-
-        return;
+                const id = String(record.id);
+                if (ids.has(id)) throw new Error("Duplicate violation ID returned.");
+                ids.add(id);
+                records.push(record);
+            }
+            offset += result.data.length;
+        } while (offset < expectedTotal);
+        if (records.length !== expectedTotal || ids.size !== expectedTotal) {
+            throw new Error("Incomplete violation dataset returned.");
+        }
+        allViolations = records;
+        violationsComplete = true;
+        populateViolationTypeFilter();
+    } catch (error) {
+        console.error("Unable to load complete violation data:", error);
+        allViolations = [];
+        violationsComplete = false;
+        violationsLoadError = "Unable to load complete violation records. Use Refresh to try again.";
+    } finally {
+        violationsLoading = false;
+        refreshButton.disabled = false;
+        renderViolations();
     }
-
-
-    allViolations =
-        result.data || [];
-
-
-    populateViolationTypeFilter();
-
-    renderViolations();
 }
 
 
@@ -739,10 +914,29 @@ function getFilteredViolations() {
 ===================================================== */
 
 function renderViolations() {
+    if (!violationsComplete) {
+        recordCount.textContent = "Unavailable";
+        violationRecords.innerHTML = "";
+        const message = document.createElement("div");
+        message.className = violationsLoadError
+            ? "rounded-xl bg-red-50 px-4 py-10 text-center text-sm text-red-600"
+            : "rounded-xl bg-gray-50 px-4 py-10 text-center text-sm text-gray-500";
+        if (violationsLoadError) message.setAttribute("role", "alert");
+        message.textContent = violationsLoadError || (violationsLoading
+            ? "Loading violation records..." : "Violation records are not loaded.");
+        violationRecords.appendChild(message);
+        return;
+    }
+
 
     const records =
         getFilteredViolations();
 
+
+    const pageCount = Math.max(1, Math.ceil(records.length / VIOLATION_PAGE_SIZE));
+    currentViolationPage = Math.min(Math.max(1, currentViolationPage), pageCount);
+    const start = (currentViolationPage - 1) * VIOLATION_PAGE_SIZE;
+    const pageRecords = records.slice(start, start + VIOLATION_PAGE_SIZE);
 
     recordCount.textContent =
         records.length +
@@ -783,7 +977,7 @@ function renderViolations() {
         "space-y-4";
 
 
-    records.forEach(
+    pageRecords.forEach(
         function (violation) {
 
             container.appendChild(
@@ -798,12 +992,47 @@ function renderViolations() {
     violationRecords.appendChild(
         container
     );
+    renderViolationPagination(records.length, pageCount, start);
+
 }
 
 
 /* =====================================================
    CREATE VIOLATION CARD
 ===================================================== */
+
+function resetViolationPage() {
+    currentViolationPage = 1;
+    renderViolations();
+}
+
+function renderViolationPagination(total, pageCount, start) {
+    const controls = document.createElement("div");
+    controls.className = "mt-4 flex flex-wrap items-center justify-between gap-3";
+    controls.setAttribute("aria-label", "Violation pagination");
+    const label = document.createElement("p");
+    label.className = "text-sm text-gray-600";
+    label.textContent = "Showing " + (start + 1) + "-" + Math.min(start + VIOLATION_PAGE_SIZE, total)
+        + " of " + total + " records | Page " + currentViolationPage + " of " + pageCount;
+    controls.appendChild(label);
+    const buttons = document.createElement("div");
+    buttons.className = "flex gap-2";
+    [["Previous", -1], ["Next", 1]].forEach(function ([text, direction]) {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.textContent = text;
+        button.className = "rounded-lg border border-gray-300 px-4 py-2 text-sm disabled:opacity-50";
+        button.disabled = direction < 0 ? currentViolationPage === 1 : currentViolationPage === pageCount;
+        button.addEventListener("click", function () {
+            currentViolationPage += direction;
+            renderViolations();
+        });
+        buttons.appendChild(button);
+    });
+    controls.appendChild(buttons);
+    violationRecords.appendChild(controls);
+}
+
 
 function createViolationCard(
     violation
@@ -941,6 +1170,22 @@ function createViolationCard(
         studentInfo
     );
 
+    const databaseStudentId = student && student.id;
+    const usableStudentId =
+        (typeof databaseStudentId === "string" && /^[1-9]\d*$/.test(databaseStudentId)) ||
+        (typeof databaseStudentId === "number" && Number.isSafeInteger(databaseStudentId) && databaseStudentId > 0);
+    const historyAction = document.createElement(usableStudentId ? "a" : "span");
+    historyAction.className = "inline-flex shrink-0 items-center whitespace-nowrap rounded-lg border px-3 py-2 text-xs font-semibold transition " +
+        (usableStudentId
+            ? "border-green-200 bg-green-50 text-[#006B21] hover:bg-green-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-600 focus-visible:ring-offset-2"
+            : "cursor-not-allowed border-gray-200 bg-gray-100 text-gray-400");
+    historyAction.textContent = usableStudentId ? "View Student History" : "Student History unavailable";
+    if (usableStudentId) {
+        historyAction.href = "history.html?studentId=" + encodeURIComponent(String(databaseStudentId));
+    } else {
+        historyAction.setAttribute("aria-disabled", "true");
+    }
+
 
     /* =================================================
        STATUS
@@ -1031,9 +1276,7 @@ function createViolationCard(
     );
 
 
-    header.appendChild(
-        statusArea
-    );
+    header.appendChild(statusArea);
 
 
     card.appendChild(
@@ -1161,6 +1404,9 @@ function createViolationCard(
        PHOTOS
     ================================================= */
 
+    const bottomActions = document.createElement("div");
+    bottomActions.className = "mt-4 flex flex-wrap items-end justify-between gap-3";
+
     if (
         violation.violation_photos &&
         violation.violation_photos.length > 0
@@ -1172,8 +1418,8 @@ function createViolationCard(
             );
 
 
-        photoSection.className =
-            "mt-4 border-t border-gray-100 pt-4";
+        bottomActions.classList.add("border-t", "border-gray-100", "pt-4");
+        photoSection.className = "min-w-0 flex-1";
 
 
         const title =
@@ -1250,11 +1496,22 @@ function createViolationCard(
         );
 
 
-        card.appendChild(
+        bottomActions.appendChild(
             photoSection
         );
     }
 
+    const historyActions = document.createElement("div");
+    historyActions.className = "ml-auto flex flex-wrap items-center justify-end gap-2";
+    const statusHistoryButton = document.createElement("button");
+    statusHistoryButton.type = "button";
+    statusHistoryButton.className = "rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-xs font-semibold text-[#006B21] hover:bg-green-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-600 focus-visible:ring-offset-2";
+    statusHistoryButton.textContent = "Status History";
+    statusHistoryButton.addEventListener("click", () => openStatusHistory(violation, statusHistoryButton));
+    historyActions.appendChild(statusHistoryButton);
+    historyActions.appendChild(historyAction);
+    bottomActions.appendChild(historyActions);
+    card.appendChild(bottomActions);
 
     return card;
 }
@@ -1421,46 +1678,53 @@ function createStatusSelect(
    UPDATE STATUS
 ===================================================== */
 
+/* =====================================================
+   UPDATE STATUS
+===================================================== */
+
 async function updateViolationStatus(
     violationId,
     newStatus
 ) {
 
-    /*
-        Frontend guard.
-
-        Database RLS also prevents
-        Security Office from updating.
-    */
+    console.log(
+        "UPDATE STATUS FUNCTION CALLED"
+    );
 
     if (
-        currentProfile.role !==
-            "oswe_admin" &&
-        currentProfile.role !==
-            "oswe_staff"
+        currentProfile.role !== "oswe_admin" &&
+        currentProfile.role !== "oswe_staff"
     ) {
 
         alert(
             "You do not have permission to change the violation status."
         );
 
-
         return false;
     }
 
+    console.log(
+        "Updating:",
+        violationId,
+        "to:",
+        newStatus
+    );
 
     const result =
         await supabaseClient
             .from("violations")
             .update({
-                status:
-                    newStatus
+                status: newStatus
             })
             .eq(
                 "id",
                 violationId
             );
 
+    console.log(
+        "SUPABASE RESULT:",
+        result
+    );
 
     if (result.error) {
 
@@ -1469,20 +1733,20 @@ async function updateViolationStatus(
             result.error
         );
 
-
         alert(
             "Unable to update the violation status."
         );
 
-
         return false;
     }
 
+    console.log(
+        "STATUS UPDATED SUCCESSFULLY"
+    );
 
     const record =
         allViolations.find(
             function (violation) {
-
                 return (
                     violation.id ===
                     violationId
@@ -1490,17 +1754,17 @@ async function updateViolationStatus(
             }
         );
 
-
     if (record) {
-
-        record.status =
-            newStatus;
+        record.status = newStatus;
     }
 
+    renderViolations();
+
+    // Show notification ONLY ONCE
+    showStatusNotification();
 
     return true;
 }
-
 
 /* =====================================================
    VIEW PRIVATE PHOTO
@@ -1670,7 +1934,10 @@ function formatDateTime(value) {
                 "2-digit",
             hour12:
                 true
+<<<<<<< HEAD
 
+=======
+>>>>>>> 98dd817d6f21297c5cd7ee39b3e40452a822fd2c
         }
     );
 }
@@ -1682,19 +1949,19 @@ function formatDateTime(value) {
 
 searchInput.addEventListener(
     "input",
-    renderViolations
+    resetViolationPage
 );
 
 
 statusFilter.addEventListener(
     "change",
-    renderViolations
+    resetViolationPage
 );
 
 
 violationTypeFilter.addEventListener(
     "change",
-    renderViolations
+    resetViolationPage
 );
 
 
@@ -1780,3 +2047,6 @@ async function initialize() {
 
 
 initialize();
+
+
+//FIX

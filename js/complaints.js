@@ -194,6 +194,68 @@ const callRemarks =
 ===================================================== */
 
 let currentProfile = null;
+let savedComplaintId = null;
+let isSavingComplaint = false;
+
+function validateCallSlipFields() {
+    const validDate = value => {
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+        const date = new Date(value + "T00:00:00Z");
+        return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value;
+    };
+    const invalid = (field, message) => {
+        showMessage(message, false);
+        field.focus();
+        return false;
+    };
+    if (!callDate.value.trim()) return invalid(callDate, "Please enter the Call Slip date.");
+    if (!validDate(callDate.value)) return invalid(callDate, "Please enter a valid Call Slip date.");
+    if (!["1", "2", "3"].includes(callNumber.value)) return invalid(callNumber, "Please select Call Number 1, 2, or 3.");
+    if (!["At Once", "After Class Period", "During Vacant Time", "Specific Date / Time"].includes(scheduleType.value)) {
+        return invalid(scheduleType, "Please select a supported schedule.");
+    }
+    if (scheduleType.value === "Specific Date / Time" && (!scheduledDate.value || !scheduledTime.value)) {
+        return invalid(!scheduledDate.value ? scheduledDate : scheduledTime,
+            "Please enter the scheduled date and time for Specific Date / Time.");
+    }
+    if (scheduledDate.value && !validDate(scheduledDate.value)) return invalid(scheduledDate, "Please enter a valid scheduled date.");
+    if (scheduledTime.value && !/^([01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d{1,3})?)?$/.test(scheduledTime.value)) {
+        return invalid(scheduledTime, "Please enter a valid scheduled time.");
+    }
+    return true;
+}
+
+function updateComplaintFormState() {
+    const retry = savedComplaintId !== null;
+    [whatHappened, whoInvolved, incidentDatetime, locationInput, howHappened,
+        otherDetails, complainantName, complainantStudentId, complainantCourse,
+        complainantCellphone, complainantResidenceTel, complainantAddress, dateReported]
+        .forEach(field => { field.disabled = isSavingComplaint || retry; });
+    [callStudentName, callCourseYear, callDate, callNumber, scheduleType,
+        scheduledDate, scheduledTime, callRemarks].forEach(field => { field.disabled = isSavingComplaint; });
+    if (addCallSlipCheckbox) {
+        addCallSlipCheckbox.disabled = isSavingComplaint || retry;
+        if (retry) addCallSlipCheckbox.checked = true;
+    }
+    if (callSlipFields) callSlipFields.classList.toggle("hidden", !(retry || (addCallSlipCheckbox && addCallSlipCheckbox.checked)));
+    submitComplaintButton.disabled = isSavingComplaint;
+    submitComplaintButton.textContent = isSavingComplaint
+        ? (retry ? "Saving Call Slip..." : "Saving...") : (retry ? "Retry Call Slip" : "Save Complaint");
+    clearFormButton.disabled = isSavingComplaint;
+    clearFormButton.textContent = retry ? "Start New Complaint" : "Clear";
+}
+
+function resetComplaintForm() {
+    savedComplaintId = null;
+    complaintForm.reset();
+    if (receivedBy) receivedBy.value = currentProfile ? currentProfile.full_name : "";
+    setToday();
+    updateComplaintFormState();
+}
+
+function showCallSlipRetryMessage() {
+    showMessage("Complaint #" + savedComplaintId + " was saved, but the Call Slip could not be created. Retry Call Slip will use this existing complaint.", false);
+}
 
 
 /* =====================================================
@@ -267,9 +329,11 @@ function setToday() {
 
     if (callDate) {
 
-        callDate.value =
-            value;
+        callDate.value = "";
     }
+    // Require explicit Call Slip values instead of accepting untouched defaults.
+    if (callNumber) callNumber.selectedIndex = -1;
+    if (scheduleType) scheduleType.selectedIndex = -1;
 }
 
 
@@ -667,84 +731,55 @@ async function createCallSlip(
    SAVE COMPLAINT
 ===================================================== */
 
-async function saveComplaint(
-    event
-) {
-
+async function saveComplaint(event) {
     event.preventDefault();
-
-
-    if (!currentProfile) {
-
+    if (isSavingComplaint || !currentProfile) return;
+    if (currentProfile.role !== "oswe_admin" && currentProfile.role !== "oswe_staff") {
+        showMessage("You do not have permission to add complaints.", false);
         return;
     }
-
-
-    if (
-        currentProfile.role !==
-            "oswe_admin" &&
-        currentProfile.role !==
-            "oswe_staff"
-    ) {
-
-        showMessage(
-            "You do not have permission to add complaints.",
-            false
-        );
-
-        return;
-    }
-
-
-    if (
-        !whatHappened
-            .value
-            .trim()
-    ) {
-
-        showMessage(
-            "Please enter what happened.",
-            false
-        );
-
-        whatHappened.focus();
-
-        return;
-    }
-
-
-    if (!dateReported.value) {
-
-        showMessage(
-            "Please enter the date reported.",
-            false
-        );
-
-        dateReported.focus();
-
-        return;
-    }
-
-
-    submitComplaintButton.disabled =
-        true;
-
-
-    submitComplaintButton.textContent =
-        "Saving...";
-
-
+    const retry = savedComplaintId !== null;
+    const needsCallSlip = retry || (addCallSlipCheckbox && addCallSlipCheckbox.checked);
+    let incidentTimestamp = null;
     hideMessage();
-
-
-    /*
-        CREATE COMPLAINT THROUGH RPC
-
-        This returns the new complaint ID
-        without giving Staff access to
-        Complaint Tracking.
-    */
-
+    if (!retry) {
+        if (incidentDatetime.value) {
+            const value = incidentDatetime.value;
+            const match = /^(\d{4})-(\d{2})-(\d{2})T([01]\d|2[0-3]):([0-5]\d)(?::([0-5]\d)(?:\.(\d{1,3}))?)?$/.exec(value);
+            const incidentDate = new Date(value + "+08:00");
+            const manilaDate = new Date(incidentDate.getTime() + 8 * 60 * 60 * 1000);
+            if (!match || !Number.isFinite(incidentDate.getTime()) ||
+                manilaDate.getUTCFullYear() !== Number(match[1]) ||
+                manilaDate.getUTCMonth() + 1 !== Number(match[2]) ||
+                manilaDate.getUTCDate() !== Number(match[3])) {
+                showMessage("Please enter a valid incident date and time.", false);
+                incidentDatetime.focus();
+                return;
+            }
+            incidentTimestamp = incidentDate.toISOString();
+        }
+        if (!whatHappened.value.trim()) {
+            showMessage("Please enter what happened.", false);
+            whatHappened.focus();
+            return;
+        }
+        if (!dateReported.value) {
+            showMessage("Please enter the date reported.", false);
+            dateReported.focus();
+            return;
+        }
+    }
+    if (needsCallSlip && !validateCallSlipFields()) {
+        if (retry) {
+            const detail = formMessage.textContent;
+            showMessage("Complaint #" + savedComplaintId + " is already saved. " + detail, false);
+        }
+        return;
+    }
+    isSavingComplaint = true;
+    updateComplaintFormState();
+    try {
+        if (!retry) {
     const result =
         await supabaseClient.rpc(
             "create_complaint",
@@ -762,8 +797,7 @@ async function saveComplaint(
                     null,
 
                 p_incident_datetime:
-                    incidentDatetime.value ||
-                    null,
+                    incidentTimestamp,
 
                 p_location:
                     locationInput
@@ -826,113 +860,37 @@ async function saveComplaint(
                     currentProfile.full_name
             }
         );
-
-
-    if (result.error) {
-
-        console.error(
-            "Unable to save complaint:",
-            result.error
-        );
-
-
-        showMessage(
-            "Unable to save complaint.",
-            false
-        );
-
-
-        submitComplaintButton.disabled =
-            false;
-
-
-        submitComplaintButton.textContent =
-            "Save Complaint";
-
-
-        return;
-    }
-
-
-    const complaintId =
-        result.data;
-
-
-    /*
-        CREATE CALL SLIP IF SELECTED
-
-        Staff AND Admin can do this.
-    */
-
-    if (
-        addCallSlipCheckbox &&
-        addCallSlipCheckbox.checked
-    ) {
-
-        const callSlipSaved =
-            await createCallSlip(
-                complaintId
-            );
-
-
-        if (!callSlipSaved) {
-
-            showMessage(
-                "Complaint saved, but the Call Slip could not be created.",
-                false
-            );
-
-
-            submitComplaintButton.disabled =
-                false;
-
-
-            submitComplaintButton.textContent =
-                "Save Complaint";
-
-
-            return;
+            if (result.error) {
+                console.error("Unable to save complaint:", result.error);
+                showMessage("Unable to save complaint. If the connection failed, verify whether it was saved before submitting again.", false);
+                return;
+            }
+            const id = result.data;
+            const validId = (typeof id === "number" && Number.isSafeInteger(id) && id > 0) ||
+                (typeof id === "string" && /^[1-9]\d*$/.test(id));
+            if (!validId) {
+                showMessage("The complaint save returned no valid ID. Verify whether the complaint was saved before submitting again. No Call Slip was created.", false);
+                return;
+            }
+            savedComplaintId = id;
+            updateComplaintFormState();
         }
+        if (needsCallSlip) {
+            if (!await createCallSlip(savedComplaintId)) {
+                showCallSlipRetryMessage();
+                return;
+            }
+        }
+        resetComplaintForm();
+        showMessage("Complaint saved successfully.", true);
+    } catch (error) {
+        console.error("Unable to complete complaint submission:", error);
+        if (savedComplaintId !== null) showCallSlipRetryMessage();
+        else showMessage("Unable to complete the save. Verify whether the complaint was saved before submitting again.", false);
+    } finally {
+        isSavingComplaint = false;
+        updateComplaintFormState();
     }
-
-
-    showMessage(
-        "Complaint saved successfully.",
-        true
-    );
-
-
-    /*
-        RESET FORM
-    */
-
-    complaintForm.reset();
-
-
-    if (receivedBy) {
-
-        receivedBy.value =
-            currentProfile.full_name;
-    }
-
-
-    setToday();
-
-
-    if (callSlipFields) {
-
-        callSlipFields.classList.add(
-            "hidden"
-        );
-    }
-
-
-    submitComplaintButton.disabled =
-        false;
-
-
-    submitComplaintButton.textContent =
-        "Save Complaint";
 }
 
 
@@ -941,27 +899,13 @@ async function saveComplaint(
 ===================================================== */
 
 if (addCallSlipCheckbox) {
-
-    addCallSlipCheckbox.addEventListener(
-        "change",
-        function () {
-
-            if (
-                addCallSlipCheckbox.checked
-            ) {
-
-                callSlipFields.classList.remove(
-                    "hidden"
-                );
-
-            } else {
-
-                callSlipFields.classList.add(
-                    "hidden"
-                );
-            }
+    addCallSlipCheckbox.addEventListener("change", function () {
+        if (isSavingComplaint || savedComplaintId !== null) {
+            updateComplaintFormState();
+            return;
         }
-    );
+        updateComplaintFormState();
+    });
 }
 
 
@@ -970,30 +914,11 @@ if (addCallSlipCheckbox) {
 ===================================================== */
 
 function clearComplaintForm() {
-
-    complaintForm.reset();
-
-
-    if (receivedBy) {
-
-        receivedBy.value =
-            currentProfile
-                ? currentProfile.full_name
-                : "";
-    }
-
-
-    setToday();
-
-
-    if (callSlipFields) {
-
-        callSlipFields.classList.add(
-            "hidden"
-        );
-    }
-
-
+    if (isSavingComplaint) return;
+    if (savedComplaintId !== null && !window.confirm(
+        "Complaint #" + savedComplaintId + " is already saved. Start a new complaint and abandon this Call Slip retry? The saved complaint will remain."
+    )) return;
+    resetComplaintForm();
     hideMessage();
 }
 
@@ -1042,6 +967,7 @@ async function initialize() {
 
 
     await loadProfile();
+    updateComplaintFormState();
 }
 
 
