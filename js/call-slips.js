@@ -1,3 +1,5 @@
+const callSlipMutations = new Set();
+let isSavingReschedule = false;
 /* =====================================================
    CSUPAK INTERVIEW TRACKING
 ===================================================== */
@@ -1464,6 +1466,7 @@ function createCallRow(
     );
 
 
+    statusSelect.disabled = callSlipMutations.has(String(call.id));
     statusSelect.addEventListener(
         "change",
         async function () {
@@ -1493,7 +1496,8 @@ function createCallRow(
 
             await updateInterviewStatus(
                 call.id,
-                newStatus
+                newStatus,
+                statusSelect
             );
         }
     );
@@ -1532,74 +1536,33 @@ function createCallRow(
    UPDATE INTERVIEW STATUS
 ===================================================== */
 
-async function updateInterviewStatus(
-    callSlipId,
-    newStatus
-) {
-
-    const statusValue =
-        newStatus ||
-        null;
-
-
-    const result =
-        await supabaseClient
-            .from("call_slips")
-            .update({
-                interview_status:
-                    statusValue
-            })
-            .eq(
-                "id",
-                callSlipId
-            );
-
-
-    if (result.error) {
-
-        console.error(
-            "Unable to update interview status:",
-            result.error
-        );
-
-
-        alert(
-            "Unable to update interview status."
-        );
-
-
-        await loadCallSlips();
-
-
-        return;
+async function updateInterviewStatus(callSlipId, newStatus, control) {
+    const key = String(callSlipId);
+    const record = allCallSlips.find(item => String(item.id) === key);
+    if (callSlipMutations.has(key) || !record) return;
+    const previous = record.interview_status;
+    const status = newStatus || null;
+    callSlipMutations.add(key);
+    if (control) control.disabled = true;
+    try {
+        const result = await supabaseClient.from("call_slips").update({interview_status: status})
+            .eq("id", callSlipId).select("id, interview_status").single();
+        if (result.error || !result.data || String(result.data.id) !== key || result.data.interview_status !== status) {
+            throw new Error("Update not confirmed.");
+        }
+        const current = allCallSlips.find(item => String(item.id) === key);
+        if (current) current.interview_status = status;
+        showStatusNotification();
+    } catch (_) {
+        if (control) control.value = previous || "";
+        alert("Status change could not be confirmed. Refresh to verify before trying again.");
+    } finally {
+        callSlipMutations.delete(key);
+        if (control) control.disabled = false;
+        renderCallSlips();
     }
-
-
-    const record =
-        allCallSlips.find(
-            function (item) {
-
-                return (
-                    item.id ===
-                    callSlipId
-                );
-            }
-        );
-
-
-    if (record) {
-
-    record.interview_status =
-        statusValue;
 }
 
-
-updateSummary();
-
-renderCallSlips();
-
-showStatusNotification();
-}
 
 
 /* =====================================================
@@ -1609,6 +1572,7 @@ showStatusNotification();
 function openRescheduleModal(
     call
 ) {
+    if (isSavingReschedule || callSlipMutations.has(String(call.id))) return;
 
     selectedCallSlipId =
         call.id;
@@ -1645,6 +1609,7 @@ function openRescheduleModal(
 
 
 function closeReschedule() {
+    if (isSavingReschedule) return;
 
     selectedCallSlipId =
         null;
@@ -1668,67 +1633,51 @@ function closeReschedule() {
 }
 
 
-async function saveReschedule(
-    event
-) {
-
+async function saveReschedule(event) {
     event.preventDefault();
-
-
-    if (!selectedCallSlipId) {
-
-        return;
+    const id = selectedCallSlipId;
+    const key = String(id);
+    if (isSavingReschedule || !id || callSlipMutations.has(key) || !rescheduleForm.reportValidity()) return;
+    const payload = {
+        scheduled_date: newScheduledDate.value,
+        scheduled_time: newScheduledTime.value,
+        remarks: rescheduleRemarks.value.trim() || null,
+        interview_status: "Reschedule"
+    };
+    const controls = Array.from(rescheduleForm.querySelectorAll("input, select, textarea, button"));
+    const states = controls.map(field => field.disabled);
+    const save = rescheduleForm.querySelector('[type="submit"]');
+    const label = save ? save.textContent : "";
+    isSavingReschedule = true;
+    callSlipMutations.add(key);
+    controls.forEach(field => { field.disabled = true; });
+    if (save) save.textContent = "Saving...";
+    let confirmed = false;
+    try {
+        const result = await supabaseClient.from("call_slips").update(payload)
+            .eq("id", id).select("id, interview_status, scheduled_date, scheduled_time, remarks").single();
+        if (result.error || !result.data || String(result.data.id) !== key || result.data.interview_status !== "Reschedule") {
+            throw new Error("Update not confirmed.");
+        }
+        confirmed = true;
+        // A successful write stays successful even when its subsequent read fails.
+        try {
+            await loadCallSlips();
+            if (!callSlipsComplete || callSlipsLoadError) throw new Error("Refresh failed.");
+            showStatusNotification();
+        } catch (_) {
+            alert("Reschedule saved, but the view could not be refreshed. Use Refresh to reload the records.");
+        }
+    } catch (_) {
+        alert("Reschedule could not be confirmed. Refresh to verify before saving again.");
+    } finally {
+        isSavingReschedule = false;
+        callSlipMutations.delete(key);
+        controls.forEach((field, i) => { field.disabled = states[i]; });
+        if (save) save.textContent = label;
+        if (confirmed && selectedCallSlipId === id) closeReschedule();
+        if (callSlipsComplete) renderCallSlips();
     }
-
-
-    const result =
-        await supabaseClient
-            .from("call_slips")
-            .update({
-
-                scheduled_date:
-                    newScheduledDate.value,
-
-                scheduled_time:
-                    newScheduledTime.value,
-
-                remarks:
-                    rescheduleRemarks
-                        .value
-                        .trim() ||
-                    null,
-
-                interview_status:
-                    "Reschedule"
-            })
-            .eq(
-                "id",
-                selectedCallSlipId
-            );
-
-
-    if (result.error) {
-
-        console.error(
-            "Unable to reschedule interview:",
-            result.error
-        );
-
-
-        alert(
-            "Unable to reschedule interview."
-        );
-
-
-        return;
-    }
-
-
-    closeReschedule();
-
-await loadCallSlips();
-
-showStatusNotification();
 }
 
 

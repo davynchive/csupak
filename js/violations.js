@@ -1,3 +1,4 @@
+const violationMutations = new Set();
 /* =====================================================
    CSUPAK - VIOLATION RECORDS
 ===================================================== */
@@ -1634,40 +1635,10 @@ function createStatusSelect(
     );
 
 
-    select.addEventListener(
-        "change",
-        async function () {
-
-            const previousStatus =
-                violation.status;
-
-
-            const newStatus =
-                select.value;
-
-
-            select.disabled =
-                true;
-
-
-            const updated =
-                await updateViolationStatus(
-                    violation.id,
-                    newStatus
-                );
-
-
-            if (!updated) {
-
-                select.value =
-                    previousStatus;
-            }
-
-
-            select.disabled =
-                false;
-        }
-    );
+    select.disabled = violationMutations.has(String(violation.id));
+    select.addEventListener("change", async function () {
+        await updateViolationStatus(violation.id, select.value, select);
+    });
 
 
     return select;
@@ -1682,88 +1653,35 @@ function createStatusSelect(
    UPDATE STATUS
 ===================================================== */
 
-async function updateViolationStatus(
-    violationId,
-    newStatus
-) {
-
-    console.log(
-        "UPDATE STATUS FUNCTION CALLED"
-    );
-
-    if (
-        currentProfile.role !== "oswe_admin" &&
-        currentProfile.role !== "oswe_staff"
-    ) {
-
-        alert(
-            "You do not have permission to change the violation status."
-        );
-
-        return false;
+async function updateViolationStatus(violationId, newStatus, control) {
+    const key = String(violationId);
+    const record = allViolations.find(item => String(item.id) === key);
+    if (violationMutations.has(key) || !record) return;
+    if (!currentProfile || !["oswe_admin", "oswe_staff"].includes(currentProfile.role)) {
+        alert("You do not have permission to change the violation status.");
+        if (control) control.value = record.status || "";
+        return;
     }
-
-    console.log(
-        "Updating:",
-        violationId,
-        "to:",
-        newStatus
-    );
-
-    const result =
-        await supabaseClient
-            .from("violations")
-            .update({
-                status: newStatus
-            })
-            .eq(
-                "id",
-                violationId
-            );
-
-    console.log(
-        "SUPABASE RESULT:",
-        result
-    );
-
-    if (result.error) {
-
-        console.error(
-            "Unable to update violation status:",
-            result.error
-        );
-
-        alert(
-            "Unable to update the violation status."
-        );
-
-        return false;
+    const previous = record.status;
+    violationMutations.add(key);
+    if (control) control.disabled = true;
+    try {
+        const result = await supabaseClient.from("violations").update({status: newStatus})
+            .eq("id", violationId).select("id, status").single();
+        if (result.error || !result.data || String(result.data.id) !== key || result.data.status !== newStatus) {
+            throw new Error("Update not confirmed.");
+        }
+        const current = allViolations.find(item => String(item.id) === key);
+        if (current) current.status = result.data.status;
+        showStatusNotification();
+    } catch (_) {
+        if (control) control.value = previous || "";
+        alert("Status change could not be confirmed. Refresh to verify before trying again.");
+    } finally {
+        violationMutations.delete(key);
+        if (control) control.disabled = false;
+        renderViolations();
     }
-
-    console.log(
-        "STATUS UPDATED SUCCESSFULLY"
-    );
-
-    const record =
-        allViolations.find(
-            function (violation) {
-                return (
-                    violation.id ===
-                    violationId
-                );
-            }
-        );
-
-    if (record) {
-        record.status = newStatus;
-    }
-
-    renderViolations();
-
-    // Show notification ONLY ONCE
-    showStatusNotification();
-
-    return true;
 }
 
 /* =====================================================

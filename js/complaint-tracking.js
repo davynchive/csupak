@@ -1,3 +1,5 @@
+const complaintMutations = new Set();
+let isSavingTrackingCallSlip = false;
 const passkeySection =
     document.getElementById("passkeySection");
 
@@ -809,16 +811,10 @@ function createComplaintCard(
     );
 
 
-    statusSelect.addEventListener(
-        "change",
-        async function () {
-
-            await updateStatus(
-                complaint.id,
-                statusSelect.value
-            );
-        }
-    );
+    statusSelect.disabled = complaintMutations.has(complaintRequestToken + ":" + complaint.id);
+    statusSelect.addEventListener("change", async function () {
+        await updateStatus(complaint.id, statusSelect.value, statusSelect);
+    });
 
 
     header.appendChild(
@@ -1076,69 +1072,42 @@ function showStatusNotification() {
     }, 2000);
 }
 
-async function updateStatus(
-    complaintId,
-    newStatus
-) {
-
-    const result =
-        await supabaseClient.rpc(
-            "update_complaint_status_with_passkey",
-            {
-
-                entered_passkey:
-                    currentPasskey,
-
-                complaint_id:
-                    complaintId,
-
-                new_status:
-                    newStatus
-            }
-        );
-
-
-    if (result.error) {
-
-        console.error(
-            result.error
-        );
-
-
-        alert(
-            "Unable to update complaint status."
-        );
-
-
-        return;
+async function updateStatus(complaintId, newStatus, control) {
+    const session = complaintRequestToken;
+    const key = session + ":" + complaintId;
+    const complaint = allComplaints.find(item => String(item.id) === String(complaintId));
+    if (complaintMutations.has(key) || !complaint || !currentPasskey) return;
+    const previous = complaint.complaint_status;
+    const passkey = currentPasskey;
+    const isCurrent = () => session === complaintRequestToken && currentPasskey === passkey;
+    complaintMutations.add(key);
+    if (control) control.disabled = true;
+    try {
+        const result = await supabaseClient.rpc("update_complaint_status_with_passkey", {
+            entered_passkey: passkey, complaint_id: complaintId, new_status: newStatus
+        });
+        // The RPC must explicitly acknowledge success; null/false/unknown shapes are not confirmation.
+        if (result.error || result.data !== true) throw new Error("Update not confirmed.");
+        if (!isCurrent()) return;
+        const current = allComplaints.find(item => String(item.id) === String(complaintId));
+        if (current) current.complaint_status = newStatus;
+        showStatusNotification();
+    } catch (_) {
+        if (!isCurrent()) return;
+        if (control) control.value = previous || "";
+        alert("Status change could not be confirmed. Lock and unlock to verify before trying again.");
+    } finally {
+        complaintMutations.delete(key);
+        if (control) control.disabled = false;
+        if (isCurrent()) renderComplaints();
     }
-
-
-    const complaint =
-        allComplaints.find(
-            function (item) {
-
-                return (
-                    item.id ===
-                    complaintId
-                );
-            }
-        );
-
-
-    if (complaint) {
-
-        complaint.complaint_status =
-            newStatus;
-    }
-
-    showStatusNotification();
 }
 
 
 function openCallSlip(
     complaint
 ) {
+    if (isSavingTrackingCallSlip) return;
 
     selectedComplaintId =
         complaint.id;
@@ -1216,25 +1185,15 @@ function setCallSlipDate() {
 }
 
 
-async function saveCallSlip(
-    event
-) {
-
+async function saveCallSlip(event) {
     event.preventDefault();
-
-
-    if (!selectedComplaintId) {
-        return;
-    }
-
-
-    const result =
-        await supabaseClient
-            .from("call_slips")
-            .insert({
+    if (isSavingTrackingCallSlip || !selectedComplaintId || !callSlipForm.reportValidity()) return;
+    const complaintId = selectedComplaintId;
+    const session = complaintRequestToken;
+    const payload = {
 
                 complaint_id:
-                    selectedComplaintId,
+                    complaintId,
 
                 date:
                     callDate.value,
@@ -1272,31 +1231,39 @@ async function saveCallSlip(
 
                 interview_status:
                     null
-            });
-
-
-    if (result.error) {
-
-        console.error(
-            result.error
-        );
-
-
-        alert(
-            "Unable to save Call Slip."
-        );
-
-
-        return;
+            };
+    const controls = Array.from(callSlipForm.querySelectorAll("input, select, textarea, button"));
+    const states = controls.map(field => field.disabled);
+    const save = callSlipForm.querySelector('[type="submit"]');
+    const label = save ? save.textContent : "";
+    isSavingTrackingCallSlip = true;
+    controls.forEach(field => { field.disabled = true; });
+    if (save) save.textContent = "Saving...";
+    let confirmed = false;
+    try {
+        const result = await supabaseClient.from("call_slips").insert(payload)
+            .select("id, complaint_id").single();
+        const row = result.data;
+        if (result.error || !row || !validTrackingCallSlipId(row.id) || String(row.complaint_id) !== String(complaintId)) {
+            throw new Error("Insert not confirmed.");
+        }
+        confirmed = true;
+        if (session === complaintRequestToken && selectedComplaintId === complaintId) {
+            alert("Call Slip saved successfully.");
+        }
+    } catch (_) {
+        if (session === complaintRequestToken) alert("Call Slip save could not be confirmed. Verify whether it was saved before submitting again.");
+    } finally {
+        isSavingTrackingCallSlip = false;
+        controls.forEach((field, i) => { field.disabled = states[i]; });
+        if (save) save.textContent = label;
+        if (confirmed && session === complaintRequestToken && selectedComplaintId === complaintId) closeCallSlip();
     }
+}
 
-
-    alert(
-        "Call Slip saved successfully."
-    );
-
-
-    closeCallSlip();
+function validTrackingCallSlipId(id) {
+    return (typeof id === "number" && Number.isSafeInteger(id) && id > 0) ||
+        (typeof id === "string" && /^[1-9]\d*$/.test(id));
 }
 
 
