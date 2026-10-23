@@ -300,66 +300,43 @@ async function loadUser() {
 ===================================================== */
 
 function applyNavigationPermissions() {
-
     if (!currentProfile) {
-
         return;
     }
 
+    // Hide role-specific navigation links first.
+    hideNav(complaintsNav);
+    hideNav(complaintTrackingNav);
+    hideNav(interviewTrackingNav);
 
+    // Admin and staff can access Complaints and Interview Tracking.
     if (
-        currentProfile.role ===
-            "oswe_staff" ||
-        currentProfile.role ===
-            "oswe_admin"
+        currentProfile.role === "oswe_admin" ||
+        currentProfile.role === "oswe_staff"
     ) {
-
-        complaintsNav
-            .classList
-            .remove(
-                "hidden"
-            );
-
-        complaintsNav
-            .classList
-            .add(
-                "flex"
-            );
-
-
-        interviewTrackingNav
-            .classList
-            .remove(
-                "hidden"
-            );
-
-        interviewTrackingNav
-            .classList
-            .add(
-                "flex"
-            );
+        showNav(complaintsNav);
+        showNav(interviewTrackingNav);
     }
 
-
-    if (
-        currentProfile.role ===
-        "oswe_admin"
-    ) {
-
-        complaintTrackingNav
-            .classList
-            .remove(
-                "hidden"
-            );
-
-        complaintTrackingNav
-            .classList
-            .add(
-                "flex"
-            );
+    // Only admin can access Complaint Tracking.
+    if (currentProfile.role === "oswe_admin") {
+        showNav(complaintTrackingNav);
     }
 }
 
+function showNav(element) {
+    if (!element) return;
+
+    element.classList.remove("hidden");
+    element.classList.add("flex");
+}
+
+function hideNav(element) {
+    if (!element) return;
+
+    element.classList.add("hidden");
+    element.classList.remove("flex");
+}
 
 /* =====================================================
    ACTIVE SEMESTER

@@ -368,42 +368,43 @@ async function loadProfile() {
 ===================================================== */
 
 function applyNavigationPermissions() {
-
     if (!currentProfile) {
-
         return;
     }
 
+    // Hide role-specific navigation links first.
+    hideNav(complaintsNav);
+    hideNav(complaintTrackingNav);
+    hideNav(interviewTrackingNav);
 
+    // Admin and staff can access Complaints and Interview Tracking.
     if (
-        currentProfile.role ===
-            "oswe_staff" ||
-        currentProfile.role ===
-            "oswe_admin"
+        currentProfile.role === "oswe_admin" ||
+        currentProfile.role === "oswe_staff"
     ) {
-
-        showNav(
-            complaintsNav
-        );
-
-
-        showNav(
-            interviewTrackingNav
-        );
+        showNav(complaintsNav);
+        showNav(interviewTrackingNav);
     }
 
-
-    if (
-        currentProfile.role ===
-        "oswe_admin"
-    ) {
-
-        showNav(
-            complaintTrackingNav
-        );
+    // Only admin can access Complaint Tracking.
+    if (currentProfile.role === "oswe_admin") {
+        showNav(complaintTrackingNav);
     }
 }
 
+function showNav(element) {
+    if (!element) return;
+
+    element.classList.remove("hidden");
+    element.classList.add("flex");
+}
+
+function hideNav(element) {
+    if (!element) return;
+
+    element.classList.add("hidden");
+    element.classList.remove("flex");
+}
 
 /* =====================================================
    SHOW NAV
