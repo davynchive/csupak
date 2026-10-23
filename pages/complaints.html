@@ -369,7 +369,7 @@
                                     for="complainantCourseId"
                                     class="mb-2 block text-sm font-semibold text-gray-700"
                                 >
-                                    Course (for reporting)
+                                    Course
                                 </label>
 
                                 <select
@@ -386,17 +386,25 @@
                             <div>
 
                                 <label
-                                    for="complainantCourse"
+                                    for="complainantYearLevel"
                                     class="mb-2 block text-sm font-semibold text-gray-700"
                                 >
-                                    Course / Year / Major
+                                    Year Level
                                 </label>
 
-                                <input
-                                    id="complainantCourse"
-                                    type="text"
-                                    class="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm outline-none focus:border-[#006B21] focus:ring-2 focus:ring-green-100"
+                                <select
+                                    id="complainantYearLevel"
+                                    required
+                                    class="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm outline-none focus:border-[#006B21] focus:ring-2 focus:ring-green-100"
                                 >
+                                    <option value="">Select year level</option>
+                                    <option value="1st Year">1st Year</option>
+                                    <option value="2nd Year">2nd Year</option>
+                                    <option value="3rd Year">3rd Year</option>
+                                    <option value="4th Year">4th Year</option>
+                                    <option value="5th Year">5th Year</option>
+                                    <option value="6th Year">6th Year</option>
+                                </select>
 
                             </div>
 

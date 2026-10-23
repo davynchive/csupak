@@ -2,6 +2,8 @@ let complaintInitReady = false;
 let complaintInitReason = "Loading account information and courses...";
 let complaintCoursesReady = false;
 let complaintCourseIds = new Set();
+let complaintCourseCodes = new Map();
+const COMPLAINANT_YEAR_LEVELS = ["1st Year", "2nd Year", "3rd Year", "4th Year", "5th Year", "6th Year"];
 /* =====================================================
    CSUPAK - ADD COMPLAINT
 ===================================================== */
@@ -89,10 +91,7 @@ const complainantStudentId =
 
 const complainantCourseId = document.getElementById("complainantCourseId");
 
-const complainantCourse =
-    document.getElementById(
-        "complainantCourse"
-    );
+const complainantYearLevel = document.getElementById("complainantYearLevel");
 
 const complainantCellphone =
     document.getElementById(
@@ -234,7 +233,7 @@ function validateCallSlipFields() {
 function updateComplaintFormState() {
     const retry = savedComplaintId !== null;
     [whatHappened, whoInvolved, incidentDatetime, locationInput, howHappened,
-        otherDetails, complainantName, complainantStudentId, complainantCourse, complainantCourseId,
+        otherDetails, complainantName, complainantStudentId, complainantYearLevel, complainantCourseId,
         complainantCellphone, complainantResidenceTel, complainantAddress, dateReported]
         .forEach(field => { field.disabled = isSavingComplaint || retry; });
     [callStudentName, callCourseYear, callDate, callNumber, scheduleType,
@@ -256,6 +255,7 @@ function resetComplaintForm() {
     savedComplaintId = null;
     complaintForm.reset();
     if (complaintCoursesReady) complainantCourseId.value = "";
+    complainantYearLevel.value = "";
     if (receivedBy) receivedBy.value = currentProfile ? currentProfile.full_name : "";
     setToday();
     updateComplaintFormState();
@@ -735,6 +735,7 @@ async function saveComplaint(event) {
     let incidentTimestamp = null;
     hideMessage();
     let selectedCourseId = null;
+    let courseYearSnapshot = null;
     if (!retry) {
         if (!complaintCoursesReady) {
             showMessage("Courses are unavailable. Reload before saving a new complaint.", false);
@@ -746,6 +747,14 @@ async function saveComplaint(event) {
             complainantCourseId.focus();
             return;
         }
+        if (!COMPLAINANT_YEAR_LEVELS.includes(complainantYearLevel.value)) {
+            showMessage("Please select a valid year level.", false);
+            complainantYearLevel.focus();
+            return;
+        }
+        courseYearSnapshot = selectedCourseId === null
+            ? complainantYearLevel.value
+            : complaintCourseCodes.get(selectedCourseId) + " - " + complainantYearLevel.value;
         if (incidentDatetime.value) {
             const value = incidentDatetime.value;
             const match = /^(\d{4})-(\d{2})-(\d{2})T([01]\d|2[0-3]):([0-5]\d)(?::([0-5]\d)(?:\.(\d{1,3}))?)?$/.exec(value);
@@ -827,10 +836,7 @@ async function saveComplaint(event) {
                     null,
 
                 p_complainant_course_year_major:
-                    complainantCourse
-                        .value
-                        .trim() ||
-                    null,
+                    courseYearSnapshot,
 
                 p_complainant_student_id:
                     complainantStudentId
@@ -970,6 +976,7 @@ if (logoutButton) {
 async function loadComplaintCourses() {
     complaintCoursesReady = false;
     complaintCourseIds = new Set();
+    complaintCourseCodes = new Map();
     const result = await supabaseClient.from("courses")
         .select("id, course_code, course_name")
         .order("course_code", { ascending: true });
@@ -985,6 +992,7 @@ async function loadComplaintCourses() {
             throw new Error("Invalid course returned.");
         }
         complaintCourseIds.add(id);
+        complaintCourseCodes.set(id, course.course_code);
         const option = document.createElement("option");
         option.value = id;
         option.textContent = course.course_code + " - " + course.course_name;
