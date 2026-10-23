@@ -459,6 +459,19 @@
 
 
 
+    <div id="historyEvidenceModal" role="dialog" aria-modal="true" aria-labelledby="historyEvidenceTitle"
+        class="fixed inset-0 z-50 hidden items-center justify-center bg-black/50 p-4">
+        <div class="w-full max-w-3xl overflow-auto rounded-2xl bg-white p-5 shadow-xl" style="max-height:90vh">
+            <div class="mb-4 flex items-center justify-between gap-4">
+                <h3 id="historyEvidenceTitle" class="text-lg font-bold text-[#006B21]">Evidence Photo</h3>
+                <button id="historyEvidenceClose" type="button" aria-label="Close evidence" class="rounded-lg border px-3 py-2 text-sm">Close</button>
+            </div>
+            <p id="historyEvidenceMessage" role="status" class="mb-3 text-sm text-gray-600"></p>
+            <button id="historyEvidenceRetry" type="button" hidden class="mb-3 rounded-lg border px-3 py-2 text-sm">Retry photo</button>
+            <img id="historyEvidenceImage" hidden alt="Violation evidence" class="mx-auto max-w-full rounded-lg">
+        </div>
+    </div>
+
     <!-- =====================================================
          SCRIPTS
     ====================================================== -->

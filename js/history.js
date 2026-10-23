@@ -469,6 +469,7 @@ async function searchStudents() {
     hideSearchMessage();
     searchResultsSection.classList.add("hidden");
     studentHistorySection.classList.add("hidden");
+    closeHistoryEvidence(false);
     // Invalidate any selected-student request before starting a new search.
     historyRequestToken++;
     selectedStudent = null;
@@ -805,7 +806,35 @@ function getStudentInformationText(
    LOAD STUDENT HISTORY
 ===================================================== */
 
+// Query evidence separately so metadata failures cannot masquerade as an empty photo list.
+async function loadHistoryEvidence(records, isCurrent) {
+    const photosByViolation = new Map(records.map(record => [String(record.id), []]));
+    for (let offset = 0; offset < records.length; offset += HISTORY_BATCH_SIZE) {
+        const ids = records.slice(offset, offset + HISTORY_BATCH_SIZE).map(record => record.id);
+        const allowed = new Set(ids.map(String));
+        const photos = await fetchCompleteRecords(() => supabaseClient.from("violation_photos")
+            .select("id, violation_id, file_path, file_name", {count: "exact"})
+            .in("violation_id", ids)
+            .order("id", {ascending: true}), isCurrent);
+        if (!isCurrent()) return;
+        for (const photo of photos) {
+            if (!allowed.has(String(photo.violation_id)) || typeof photo.file_path !== "string" || !photo.file_path.trim() ||
+                (photo.file_name != null && typeof photo.file_name !== "string")) {
+                throw new Error("Invalid evidence metadata.");
+            }
+            photosByViolation.get(String(photo.violation_id)).push(photo);
+        }
+    }
+    if (!isCurrent()) return;
+    // Publish only after every metadata batch has succeeded.
+    for (const record of records) {
+        record.historyPhotos = photosByViolation.get(String(record.id));
+        record.historyEvidenceComplete = true;
+    }
+}
+
 async function loadStudentHistory(student) {
+    closeHistoryEvidence(false);
     const token = ++historyRequestToken;
     const isCurrent = () => token === historyRequestToken;
     selectedStudent = student;
@@ -843,6 +872,16 @@ async function loadStudentHistory(student) {
             .eq("student_id", student.id)
             .order("date_time", { ascending: false })
             .order("id", { ascending: false }), isCurrent);
+        if (!isCurrent()) return;
+        try {
+            await loadHistoryEvidence(records, isCurrent);
+        } catch (_) {
+            if (!isCurrent()) return;
+            for (const record of records) {
+                record.historyPhotos = [];
+                record.historyEvidenceComplete = false;
+            }
+        }
         if (!isCurrent()) return;
         selectedStudentViolations = records;
         historyComplete = true;
@@ -1364,6 +1403,25 @@ function createHistoryRecord(
     }
 
 
+    if (!violation.historyEvidenceComplete) {
+        const unavailable = document.createElement("p");
+        unavailable.className = "mt-4 text-sm text-gray-500";
+        unavailable.textContent = "Evidence unavailable. Select this student again to retry loading evidence.";
+        card.appendChild(unavailable);
+    } else if (violation.historyPhotos.length) {
+        const actions = document.createElement("div");
+        actions.className = "mt-4 flex flex-wrap gap-2";
+        violation.historyPhotos.forEach((photo, index) => {
+            const button = document.createElement("button");
+            button.type = "button";
+            button.className = "rounded-lg border border-gray-300 px-3 py-2 text-sm font-semibold text-[#006B21]";
+            button.textContent = "View Evidence" + (violation.historyPhotos.length > 1 ? " " + (index + 1) : "");
+            button.addEventListener("click", () => openHistoryEvidence(violation, photo, button));
+            actions.appendChild(button);
+        });
+        card.appendChild(actions);
+    }
+
     return card;
 }
 
@@ -1664,6 +1722,105 @@ async function initialize() {
 }
 
 
-initialize();
 
 //FIX
+
+
+/* Private evidence viewer: no Storage mutations and no active-semester restriction. */
+let historyEvidenceToken = 0;
+let historyEvidenceLoader = null;
+let historyEvidenceReturnFocus = null;
+let historyEvidenceOverflow = null;
+const historyEvidenceModal = document.getElementById("historyEvidenceModal");
+const historyEvidenceImage = document.getElementById("historyEvidenceImage");
+const historyEvidenceMessage = document.getElementById("historyEvidenceMessage");
+const historyEvidenceTitle = document.getElementById("historyEvidenceTitle");
+const historyEvidenceRetry = document.getElementById("historyEvidenceRetry");
+const historyEvidenceClose = document.getElementById("historyEvidenceClose");
+function clearHistoryEvidenceImage() {
+    if (historyEvidenceLoader) {
+        historyEvidenceLoader.onload = null;
+        historyEvidenceLoader.onerror = null;
+        historyEvidenceLoader.removeAttribute("src");
+    }
+    historyEvidenceLoader = null;
+    historyEvidenceImage.onload = null;
+    historyEvidenceImage.onerror = null;
+    historyEvidenceImage.removeAttribute("src");
+    historyEvidenceImage.hidden = true;
+}
+function closeHistoryEvidence(restoreFocus = true) {
+    historyEvidenceToken++;
+    clearHistoryEvidenceImage();
+    historyEvidenceModal.classList.add("hidden");
+    historyEvidenceModal.classList.remove("flex");
+    historyEvidenceMessage.textContent = "";
+    historyEvidenceTitle.textContent = "Evidence Photo";
+    historyEvidenceRetry.hidden = true;
+    historyEvidenceRetry.onclick = null;
+    if (historyEvidenceOverflow !== null) document.body.style.overflow = historyEvidenceOverflow;
+    historyEvidenceOverflow = null;
+    if (restoreFocus && historyEvidenceReturnFocus?.isConnected) historyEvidenceReturnFocus.focus();
+    historyEvidenceReturnFocus = null;
+}
+async function openHistoryEvidence(violation, photo, trigger) {
+    if (!historyInitReady || !currentProfile || !["security_office", "oswe_staff", "oswe_admin"].includes(currentProfile.role) ||
+        historyLoading || !historyComplete || !violation.historyEvidenceComplete ||
+        !selectedStudentViolations.includes(violation) || !violation.historyPhotos.includes(photo)) return;
+    const token = ++historyEvidenceToken;
+    const studentToken = historyRequestToken;
+    const isCurrent = () => token === historyEvidenceToken && studentToken === historyRequestToken;
+    clearHistoryEvidenceImage();
+    historyEvidenceReturnFocus = trigger;
+    if (historyEvidenceOverflow === null) historyEvidenceOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    historyEvidenceModal.classList.remove("hidden");
+    historyEvidenceModal.classList.add("flex");
+    historyEvidenceTitle.textContent = photo.file_name || "Evidence Photo";
+    historyEvidenceMessage.textContent = "Loading...";
+    historyEvidenceRetry.hidden = true;
+    historyEvidenceRetry.onclick = () => { if (isCurrent()) openHistoryEvidence(violation, photo, trigger); };
+    historyEvidenceClose.focus();
+    const fail = message => {
+        if (!isCurrent()) return;
+        historyEvidenceMessage.textContent = message;
+        historyEvidenceImage.hidden = true;
+        historyEvidenceRetry.hidden = false;
+    };
+    try {
+        const result = await supabaseClient.storage.from("violation-photos").createSignedUrl(photo.file_path, 60);
+        if (!isCurrent()) return;
+        if (result.error) throw result.error;
+        if (!result.data?.signedUrl) throw new Error("Evidence URL unavailable.");
+        const loader = new Image();
+        historyEvidenceLoader = loader;
+        loader.onload = () => {
+            if (!isCurrent()) return;
+            historyEvidenceMessage.textContent = "";
+            historyEvidenceRetry.hidden = true;
+            historyEvidenceImage.onerror = () => fail("The evidence image could not be loaded. Try again.");
+            historyEvidenceImage.src = result.data.signedUrl;
+            historyEvidenceImage.hidden = false;
+        };
+        loader.onerror = () => fail("The evidence image could not be loaded. Try again.");
+        loader.src = result.data.signedUrl;
+    } catch (error) {
+        fail(safeNetworkMessage(error, "Unable to open evidence. Try again."));
+    }
+}
+historyEvidenceClose.addEventListener("click", () => closeHistoryEvidence());
+historyEvidenceModal.addEventListener("click", event => {
+    if (event.target === historyEvidenceModal) closeHistoryEvidence();
+});
+document.addEventListener("keydown", event => {
+    if (historyEvidenceModal.classList.contains("hidden")) return;
+    if (event.key === "Escape") { event.preventDefault(); closeHistoryEvidence(); }
+    if (event.key === "Tab") {
+        const controls = historyEvidenceRetry.hidden ? [historyEvidenceClose] : [historyEvidenceClose, historyEvidenceRetry];
+        const index = controls.indexOf(document.activeElement);
+        event.preventDefault();
+        controls[(index + (event.shiftKey ? controls.length - 1 : 1)) % controls.length].focus();
+    }
+});
+
+initialize();
