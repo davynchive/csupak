@@ -1,5 +1,7 @@
 let complaintInitReady = false;
-let complaintInitReason = "Loading account information...";
+let complaintInitReason = "Loading account information and courses...";
+let complaintCoursesReady = false;
+let complaintCourseIds = new Set();
 /* =====================================================
    CSUPAK - ADD COMPLAINT
 ===================================================== */
@@ -84,6 +86,8 @@ const complainantStudentId =
     document.getElementById(
         "complainantStudentId"
     );
+
+const complainantCourseId = document.getElementById("complainantCourseId");
 
 const complainantCourse =
     document.getElementById(
@@ -230,7 +234,7 @@ function validateCallSlipFields() {
 function updateComplaintFormState() {
     const retry = savedComplaintId !== null;
     [whatHappened, whoInvolved, incidentDatetime, locationInput, howHappened,
-        otherDetails, complainantName, complainantStudentId, complainantCourse,
+        otherDetails, complainantName, complainantStudentId, complainantCourse, complainantCourseId,
         complainantCellphone, complainantResidenceTel, complainantAddress, dateReported]
         .forEach(field => { field.disabled = isSavingComplaint || retry; });
     [callStudentName, callCourseYear, callDate, callNumber, scheduleType,
@@ -240,6 +244,7 @@ function updateComplaintFormState() {
         if (retry) addCallSlipCheckbox.checked = true;
     }
     if (callSlipFields) callSlipFields.classList.toggle("hidden", !(retry || (addCallSlipCheckbox && addCallSlipCheckbox.checked)));
+    complainantCourseId.disabled = isSavingComplaint || retry || !complaintCoursesReady;
     submitComplaintButton.disabled = isSavingComplaint || (!complaintInitReady && !retry);
     submitComplaintButton.textContent = isSavingComplaint
         ? (retry ? "Saving Call Slip..." : "Saving...") : (retry ? "Retry Call Slip" : "Save Complaint");
@@ -250,6 +255,7 @@ function updateComplaintFormState() {
 function resetComplaintForm() {
     savedComplaintId = null;
     complaintForm.reset();
+    if (complaintCoursesReady) complainantCourseId.value = "";
     if (receivedBy) receivedBy.value = currentProfile ? currentProfile.full_name : "";
     setToday();
     updateComplaintFormState();
@@ -728,7 +734,18 @@ async function saveComplaint(event) {
     const needsCallSlip = retry || (addCallSlipCheckbox && addCallSlipCheckbox.checked);
     let incidentTimestamp = null;
     hideMessage();
+    let selectedCourseId = null;
     if (!retry) {
+        if (!complaintCoursesReady) {
+            showMessage("Courses are unavailable. Reload before saving a new complaint.", false);
+            return;
+        }
+        selectedCourseId = complainantCourseId.value || null;
+        if (selectedCourseId !== null && !complaintCourseIds.has(selectedCourseId)) {
+            showMessage("Please select a course from the loaded list, or choose Unmapped / Not applicable.", false);
+            complainantCourseId.focus();
+            return;
+        }
         if (incidentDatetime.value) {
             const value = incidentDatetime.value;
             const match = /^(\d{4})-(\d{2})-(\d{2})T([01]\d|2[0-3]):([0-5]\d)(?::([0-5]\d)(?:\.(\d{1,3}))?)?$/.exec(value);
@@ -843,7 +860,10 @@ async function saveComplaint(event) {
                     dateReported.value,
 
                 p_received_by:
-                    currentProfile.full_name
+                    currentProfile.full_name,
+
+                p_complainant_course_id:
+                    selectedCourseId
             }
         );
             if (result.error) {
@@ -947,17 +967,50 @@ if (logoutButton) {
    INITIALIZE
 ===================================================== */
 
+async function loadComplaintCourses() {
+    complaintCoursesReady = false;
+    complaintCourseIds = new Set();
+    const result = await supabaseClient.from("courses")
+        .select("id, course_code, course_name")
+        .order("course_code", { ascending: true });
+    if (result.error) throw result.error;
+    if (!Array.isArray(result.data)) throw new Error("Invalid course list.");
+    const options = [];
+    for (const course of result.data) {
+        // Never round a bigint through Number; reject numeric IDs already outside its safe range.
+        const id = String(course?.id ?? "");
+        if (!/^[1-9]\d*$/.test(id) ||
+            (typeof course.id === "number" && !Number.isSafeInteger(course.id)) ||
+            complaintCourseIds.has(id) || typeof course.course_code !== "string" || typeof course.course_name !== "string") {
+            throw new Error("Invalid course returned.");
+        }
+        complaintCourseIds.add(id);
+        const option = document.createElement("option");
+        option.value = id;
+        option.textContent = course.course_code + " - " + course.course_name;
+        options.push(option);
+    }
+    const blank = document.createElement("option");
+    blank.value = "";
+    blank.textContent = "Unmapped / Not applicable";
+    complainantCourseId.replaceChildren(blank, ...options);
+    complainantCourseId.value = "";
+    complaintCoursesReady = true;
+}
+
 async function initialize() {
     setToday();
     updateComplaintFormState();
     showMessage(complaintInitReason, false);
     try {
         if (!await loadProfile()) throw new Error("Account unavailable.");
+        await loadComplaintCourses();
         complaintInitReady = true;
         complaintInitReason = "";
         hideMessage();
     } catch (error) {
-        complaintInitReason = safeNetworkMessage(error, "Complaints are unavailable. Account information could not be loaded. Reload to try again.");
+        if (!complaintCoursesReady) complainantCourseId.options[0].textContent = "Courses unavailable ? reload to retry";
+        complaintInitReason = safeNetworkMessage(error, "Complaints are unavailable. Account information or courses could not be loaded. Reload to try again.");
         showMessage(complaintInitReason, false);
     } finally { updateComplaintFormState(); }
 }
