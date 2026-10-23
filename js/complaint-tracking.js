@@ -1,3 +1,4 @@
+let trackingInitReady = false;
 const complaintMutations = new Set();
 let isSavingTrackingCallSlip = false;
 const passkeySection =
@@ -337,7 +338,7 @@ let complaintRequestToken = 0;
 let currentComplaintPage = 1;
 
 function restoreUnlockControl() {
-    unlockButton.disabled = false;
+    unlockButton.disabled = !trackingInitReady;
     unlockButton.textContent = "Unlock Complaint Tracking";
 }
 
@@ -348,16 +349,7 @@ async function loadProfile() {
         await supabaseClient.auth.getUser();
 
 
-    if (
-        userResult.error ||
-        !userResult.data.user
-    ) {
-
-        window.location.href =
-            "../index.html";
-
-        return false;
-    }
+    requireUserResult(userResult);
 
 
     const profileResult =
@@ -373,14 +365,7 @@ async function loadProfile() {
             .single();
 
 
-    if (profileResult.error) {
-
-        console.error(
-            profileResult.error
-        );
-
-        return false;
-    }
+    if (profileResult.error) throw profileResult.error;
 
 
     currentProfile =
@@ -437,6 +422,7 @@ async function loadProfile() {
 async function unlockComplaints(event) {
     event.preventDefault();
     if (complaintsLoading) return;
+    if (!trackingInitReady) { showPageStatus("Complaint Tracking is unavailable. Reload to try again."); return; }
     const passkey = passkeyInput.value.trim();
     if (!passkey) return;
     closeComplaintHistory(false);
@@ -1346,8 +1332,14 @@ logoutButton.addEventListener(
 
 
 async function initialize() {
-
-    await loadProfile();
+    unlockButton.disabled = true;
+    showPageStatus("Loading account information...");
+    try {
+        if (!await loadProfile()) throw new Error("Account unavailable.");
+        trackingInitReady = true;
+        showPageStatus("");
+    } catch (error) { showPageStatus(safeNetworkMessage(error)); }
+    finally { restoreUnlockControl(); }
 }
 
 

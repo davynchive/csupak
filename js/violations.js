@@ -332,16 +332,7 @@ async function loadProfile() {
             .getUser();
 
 
-    if (
-        userResult.error ||
-        !userResult.data.user
-    ) {
-
-        window.location.href =
-            "../index.html";
-
-        return false;
-    }
+    requireUserResult(userResult);
 
 
     const profileResult =
@@ -357,15 +348,7 @@ async function loadProfile() {
             .single();
 
 
-    if (profileResult.error) {
-
-        console.error(
-            "Unable to load profile:",
-            profileResult.error
-        );
-
-        return false;
-    }
+    if (profileResult.error) throw profileResult.error;
 
 
     currentProfile =
@@ -494,15 +477,7 @@ async function loadActiveSemester() {
             .maybeSingle();
 
 
-    if (result.error) {
-
-        console.error(
-            "Unable to load active semester:",
-            result.error
-        );
-
-        return false;
-    }
+    if (result.error) throw result.error;
 
 
     activeSemester =
@@ -1688,91 +1663,75 @@ async function updateViolationStatus(violationId, newStatus, control) {
    VIEW PRIVATE PHOTO
 ===================================================== */
 
-async function viewPhoto(
-    photo
-) {
-
-    if (
-        !photo ||
-        !photo.file_path
-    ) {
-
-        return;
-    }
-
-
-    /*
-        Bucket is private, so create a
-        temporary signed URL.
-    */
-
-    const result =
-        await supabaseClient
-            .storage
-            .from(
-                "violation-photos"
-            )
-            .createSignedUrl(
-                photo.file_path,
-                60
-            );
-
-
-    if (result.error) {
-
-        console.error(
-            "Unable to load photo:",
-            result.error
-        );
-
-
-        alert(
-            "Unable to load the evidence photo."
-        );
-
-
-        return;
-    }
-
-
-    photoModalImage.src =
-        result.data.signedUrl;
-
-
-    photoModalName.textContent =
-        photo.file_name ||
-        "Violation Evidence";
-
-
-    photoModal.classList.remove(
-        "hidden"
-    );
-
-
-    photoModal.classList.add(
-        "flex"
-    );
+let photoRequestToken = 0;
+let photoLoader = null;
+let photoFeedback = null;
+let photoRetry = null;
+function clearPhotoRequest() {
+    if (photoLoader) { photoLoader.onload = null; photoLoader.onerror = null; photoLoader.removeAttribute("src"); }
+    photoLoader = null;
+    photoModalImage.onload = null;
+    photoModalImage.onerror = null;
+    photoModalImage.removeAttribute("src");
+    photoModalImage.hidden = true;
 }
-
-
-/* =====================================================
-   CLOSE PHOTO
-===================================================== */
-
+async function viewPhoto(photo) {
+    if (!photo?.file_path) return;
+    const token = ++photoRequestToken;
+    const isCurrent = () => token === photoRequestToken;
+    clearPhotoRequest();
+    if (!photoFeedback) {
+        photoFeedback = document.createElement("p");
+        photoFeedback.setAttribute("role", "status");
+        photoModalImage.insertAdjacentElement("beforebegin", photoFeedback);
+        photoRetry = document.createElement("button");
+        photoRetry.type = "button";
+        photoRetry.textContent = "Retry photo";
+        photoRetry.className = "rounded-lg border px-3 py-2 text-sm";
+        photoFeedback.insertAdjacentElement("afterend", photoRetry);
+    }
+    photoFeedback.textContent = "Loading...";
+    photoRetry.hidden = true;
+    photoRetry.onclick = () => { if (isCurrent()) viewPhoto(photo); };
+    photoModalName.textContent = photo.file_name || "Violation Evidence";
+    photoModal.classList.remove("hidden");
+    photoModal.classList.add("flex");
+    const fail = message => {
+        if (!isCurrent()) return;
+        photoFeedback.textContent = message;
+        photoRetry.hidden = false;
+        photoModalImage.hidden = true;
+    };
+    try {
+        const result = await supabaseClient.storage.from("violation-photos").createSignedUrl(photo.file_path, 60);
+        if (!isCurrent()) return;
+        if (result.error) throw result.error;
+        if (!result.data?.signedUrl) throw new Error("Photo URL unavailable.");
+        // A separate image per request prevents an older image event being handled as the newer photo.
+        const loader = new Image();
+        photoLoader = loader;
+        loader.onload = () => {
+            if (!isCurrent()) return;
+            photoFeedback.textContent = "";
+            photoRetry.hidden = true;
+            photoModalImage.onerror = () => fail("The evidence image could not be loaded. Try again.");
+            photoModalImage.src = result.data.signedUrl;
+            photoModalImage.hidden = false;
+        };
+        loader.onerror = () => fail("The evidence image could not be loaded. Try again.");
+        loader.src = result.data.signedUrl;
+    } catch (error) {
+        fail(safeNetworkMessage(error, "Unable to open the evidence photo. Try again."));
+    }
+}
 function hidePhotoModal() {
-
-    photoModal.classList.add(
-        "hidden"
-    );
-
-
-    photoModal.classList.remove(
-        "flex"
-    );
-
-
-    photoModalImage.src =
-        "";
+    photoRequestToken++;
+    clearPhotoRequest();
+    photoModal.classList.add("hidden");
+    photoModal.classList.remove("flex");
+    photoModalName.textContent = "";
+    if (photoFeedback) photoFeedback.textContent = "";
+    if (photoRetry) { photoRetry.hidden = true; photoRetry.onclick = null; }
 }
 
 
@@ -1935,28 +1894,25 @@ logoutButton.addEventListener(
 ===================================================== */
 
 async function initialize() {
-
-    const profileLoaded =
-        await loadProfile();
-
-
-    if (!profileLoaded) {
-
-        return;
+    violationsLoading = true;
+    violationsComplete = false;
+    refreshButton.disabled = true;
+    renderViolations();
+    showPageStatus("Loading account and records...");
+    try {
+        if (!await loadProfile()) throw new Error("Account unavailable.");
+        if (!await loadActiveSemester()) throw new Error("Semester unavailable.");
+        violationsLoading = false;
+        showPageStatus("");
+        await loadViolations();
+    } catch (error) {
+        violationsLoading = false;
+        violationsLoadError = safeNetworkMessage(error);
+        showPageStatus(violationsLoadError);
+        renderViolations();
+        // Reload reruns authorization and required initialization before data access.
+        refreshButton.disabled = true;
     }
-
-
-    const semesterLoaded =
-        await loadActiveSemester();
-
-
-    if (!semesterLoaded) {
-
-        return;
-    }
-
-
-    await loadViolations();
 }
 
 

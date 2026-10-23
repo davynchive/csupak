@@ -387,16 +387,7 @@ async function loadProfile() {
             .getUser();
 
 
-    if (
-        userResult.error ||
-        !userResult.data.user
-    ) {
-
-        window.location.href =
-            "../index.html";
-
-        return false;
-    }
+    requireUserResult(userResult);
 
 
     const profileResult =
@@ -412,15 +403,7 @@ async function loadProfile() {
             .single();
 
 
-    if (profileResult.error) {
-
-        console.error(
-            "Unable to load profile:",
-            profileResult.error
-        );
-
-        return false;
-    }
+    if (profileResult.error) throw profileResult.error;
 
 
     currentProfile =
@@ -622,7 +605,7 @@ async function loadCallSlips() {
 function updateSummary(records = getFilteredCallSlips()) {
     if (callSlipsLoading || !callSlipsComplete) {
         [totalCalls, showCount, rescheduleCount, noShowCount].forEach(function (element) {
-            element.textContent = "Unavailable";
+            element.textContent = callSlipsLoading ? "Loading..." : "Unavailable";
         });
         return;
     }
@@ -1884,18 +1867,25 @@ logoutButton.addEventListener(
 ===================================================== */
 
 async function initialize() {
+    callSlipsLoading = true;
+    callSlipsComplete = false;
+    refreshButton.disabled = true;
+    renderCallSlips();
+    showPageStatus("Loading account and records...");
+    try {
+        if (!await loadProfile()) throw new Error("Account unavailable.");
 
-    const loaded =
-        await loadProfile();
-
-
-    if (!loaded) {
-
-        return;
+        callSlipsLoading = false;
+        showPageStatus("");
+        await loadCallSlips();
+    } catch (error) {
+        callSlipsLoading = false;
+        callSlipsLoadError = safeNetworkMessage(error);
+        showPageStatus(callSlipsLoadError);
+        renderCallSlips();
+        // Reload reruns authorization and required initialization before data access.
+        refreshButton.disabled = true;
     }
-
-
-    await loadCallSlips();
 }
 
 

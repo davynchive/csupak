@@ -1,3 +1,4 @@
+let dashboardLoading = true;
 /* =====================================================
    CSUPAK DASHBOARD
 ===================================================== */
@@ -174,16 +175,7 @@ async function loadUserProfile() {
             .getUser();
 
 
-    if (
-        userResult.error ||
-        !userResult.data.user
-    ) {
-
-        window.location.href =
-            "../index.html";
-
-        return false;
-    }
+    requireUserResult(userResult);
 
 
     currentUser =
@@ -203,15 +195,7 @@ async function loadUserProfile() {
             .single();
 
 
-    if (profileResult.error) {
-
-        console.error(
-            "Unable to load profile:",
-            profileResult.error
-        );
-
-        return false;
-    }
+    if (profileResult.error) throw profileResult.error;
 
 
     currentProfile =
@@ -466,15 +450,7 @@ async function loadActiveSemester() {
             .maybeSingle();
 
 
-    if (result.error) {
-
-        console.error(
-            "Unable to load active semester:",
-            result.error
-        );
-
-        return false;
-    }
+    if (result.error) throw result.error;
 
 
     activeSemester =
@@ -598,9 +574,11 @@ async function loadViolations() {
         populateReportPeriods(retrievedViolations);
         allViolations = retrievedViolations;
         violationsComplete = true;
+        dashboardLoading = false;
         if (generateReportButton) generateReportButton.disabled = !canGenerateReport();
         renderDashboard();
     } catch (error) {
+        dashboardLoading = false;
         console.error("Dashboard violation/report loading failed.");
         violationsComplete = false;
         violationsLoadError = "Unable to load complete violation data. Dashboard totals and reports are unavailable. Reload the page to try again.";
@@ -618,10 +596,10 @@ async function loadViolations() {
 
 function renderDashboard() {
     if (!violationsComplete) {
-        if (totalViolations) totalViolations.textContent = "Unavailable";
+        if (totalViolations) totalViolations.textContent = dashboardLoading ? "Loading..." : "Unavailable";
         if (reportMonth) reportMonth.disabled = true;
         if (generateReportButton) generateReportButton.disabled = true;
-        if (reportMonthTitle) reportMonthTitle.textContent = "Report unavailable";
+        if (reportMonthTitle) reportMonthTitle.textContent = dashboardLoading ? "Loading report..." : "Report unavailable";
         if (violationTypeCards) {
             violationTypeCards.querySelectorAll("[data-violation-type-card]").forEach(function (card) {
                 card.remove();
@@ -2257,12 +2235,16 @@ if (logoutButton) {
 ===================================================== */
 
 async function initializeDashboard() {
+    showPageStatus("Loading dashboard...");
     renderDashboard();
     try {
         if (!await loadUserProfile()) throw new Error("Profile unavailable.");
         if (!await loadActiveSemester()) throw new Error("Active semester unavailable.");
         await loadViolations();
-    } catch (_) {
+        showPageStatus(violationsComplete ? "" : violationsLoadError);
+    } catch (error) {
+        dashboardLoading = false;
+        showPageStatus(safeNetworkMessage(error));
         violationsComplete = false;
         allViolations = [];
         monthlyViolations = [];

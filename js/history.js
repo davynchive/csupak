@@ -1,3 +1,5 @@
+let historyInitReady = false;
+let submittedSearchQuery = "";
 /* =====================================================
    CSUPAK - STUDENT HISTORY
 ===================================================== */
@@ -295,16 +297,7 @@ async function loadProfile() {
             .getUser();
 
 
-    if (
-        userResult.error ||
-        !userResult.data.user
-    ) {
-
-        window.location.href =
-            "../index.html";
-
-        return false;
-    }
+    requireUserResult(userResult);
 
 
     const profileResult =
@@ -320,15 +313,7 @@ async function loadProfile() {
             .single();
 
 
-    if (profileResult.error) {
-
-        console.error(
-            "Unable to load profile:",
-            profileResult.error
-        );
-
-        return false;
-    }
+    if (profileResult.error) throw profileResult.error;
 
 
     currentProfile =
@@ -479,6 +464,7 @@ function hideSearchMessage() {
 
 async function searchStudents() {
     if (searchLoading) return;
+    if (!historyInitReady) { showSearchMessage("Student search is unavailable. Reload to try again."); return; }
     const searchValue = studentSearch.value.trim();
     hideSearchMessage();
     searchResultsSection.classList.add("hidden");
@@ -504,6 +490,7 @@ async function searchStudents() {
         studentSearch.focus();
         return;
     }
+    submittedSearchQuery = searchValue;
     searchLoading = true;
     searchButton.disabled = true;
     searchButton.textContent = "Searching...";
@@ -597,7 +584,7 @@ function renderSearchResults() {
 
 
     searchResultCount.textContent =
-        students.length +
+        'Results for "' + submittedSearchQuery + '": ' + students.length +
         (
             students.length === 1
                 ? " student found"
@@ -1624,7 +1611,7 @@ async function loadStudentFromUrl() {
     const studentId = values[0];
     const token = ++historyRequestToken;
     const isCurrent = () => token === historyRequestToken;
-    hideSearchMessage();
+    showSearchMessage("Loading linked student...");
     try {
         const result = await supabaseClient.from("students")
             .select(`
@@ -1653,6 +1640,7 @@ async function loadStudentFromUrl() {
             return;
         }
         if (String(result.data.id) !== studentId) throw new Error("Unexpected student returned.");
+        hideSearchMessage();
         await loadStudentHistory(result.data);
     } catch (error) {
         if (!isCurrent()) return;
@@ -1662,9 +1650,17 @@ async function loadStudentFromUrl() {
 }
 
 async function initialize() {
+    searchButton.disabled = true;
+    showPageStatus("Loading account information...");
+    try {
+        if (!await loadProfile()) throw new Error("Account unavailable.");
+        historyInitReady = true;
+        searchButton.disabled = false;
+        showPageStatus("");
+        if (new URLSearchParams(window.location.search).has("studentId")) showSearchMessage("Loading linked student...");
+        await loadStudentFromUrl();
 
-    if (!await loadProfile()) return;
-    await loadStudentFromUrl();
+    } catch (error) { showPageStatus(safeNetworkMessage(error)); }
 }
 
 

@@ -1,3 +1,5 @@
+let complaintInitReady = false;
+let complaintInitReason = "Loading account information...";
 /* =====================================================
    CSUPAK - ADD COMPLAINT
 ===================================================== */
@@ -238,7 +240,7 @@ function updateComplaintFormState() {
         if (retry) addCallSlipCheckbox.checked = true;
     }
     if (callSlipFields) callSlipFields.classList.toggle("hidden", !(retry || (addCallSlipCheckbox && addCallSlipCheckbox.checked)));
-    submitComplaintButton.disabled = isSavingComplaint;
+    submitComplaintButton.disabled = isSavingComplaint || (!complaintInitReady && !retry);
     submitComplaintButton.textContent = isSavingComplaint
         ? (retry ? "Saving Call Slip..." : "Saving...") : (retry ? "Retry Call Slip" : "Save Complaint");
     clearFormButton.disabled = isSavingComplaint;
@@ -349,16 +351,7 @@ async function loadProfile() {
             .getUser();
 
 
-    if (
-        userResult.error ||
-        !userResult.data.user
-    ) {
-
-        window.location.href =
-            "../index.html";
-
-        return false;
-    }
+    requireUserResult(userResult);
 
 
     const profileResult =
@@ -374,15 +367,7 @@ async function loadProfile() {
             .single();
 
 
-    if (profileResult.error) {
-
-        console.error(
-            "Unable to load profile:",
-            profileResult.error
-        );
-
-        return false;
-    }
+    if (profileResult.error) throw profileResult.error;
 
 
     currentProfile =
@@ -733,7 +718,8 @@ async function createCallSlip(
 
 async function saveComplaint(event) {
     event.preventDefault();
-    if (isSavingComplaint || !currentProfile) return;
+    if (isSavingComplaint) return;
+    if (!complaintInitReady && savedComplaintId === null) { showMessage(complaintInitReason, false); return; }
     if (currentProfile.role !== "oswe_admin" && currentProfile.role !== "oswe_staff") {
         showMessage("You do not have permission to add complaints.", false);
         return;
@@ -962,12 +948,18 @@ if (logoutButton) {
 ===================================================== */
 
 async function initialize() {
-
     setToday();
-
-
-    await loadProfile();
     updateComplaintFormState();
+    showMessage(complaintInitReason, false);
+    try {
+        if (!await loadProfile()) throw new Error("Account unavailable.");
+        complaintInitReady = true;
+        complaintInitReason = "";
+        hideMessage();
+    } catch (error) {
+        complaintInitReason = safeNetworkMessage(error, "Complaints are unavailable. Account information could not be loaded. Reload to try again.");
+        showMessage(complaintInitReason, false);
+    } finally { updateComplaintFormState(); }
 }
 
 
