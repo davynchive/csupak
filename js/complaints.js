@@ -3,6 +3,13 @@ let complaintInitReason = "Loading account information and courses...";
 let complaintCoursesReady = false;
 let complaintCourseIds = new Set();
 let complaintCourseCodes = new Map();
+const APPROVED_COMPLAINT_CATEGORIES = [
+    "Offenses Against Security",
+    "Offenses Against Property",
+    "Offenses Against Order",
+    "Offenses Involving Dishonesty",
+    "Offenses Against Public Morals"
+];
 const COMPLAINANT_YEAR_LEVELS = ["1st Year", "2nd Year", "3rd Year", "4th Year", "5th Year", "6th Year"];
 /* =====================================================
    CSUPAK - ADD COMPLAINT
@@ -736,6 +743,7 @@ async function saveComplaint(event) {
     hideMessage();
     let selectedCourseId = null;
     let courseYearSnapshot = null;
+    let selectedCategory = null;
     if (!retry) {
         if (!complaintCoursesReady) {
             showMessage("Courses are unavailable. Reload before saving a new complaint.", false);
@@ -770,8 +778,9 @@ async function saveComplaint(event) {
             }
             incidentTimestamp = incidentDate.toISOString();
         }
-        if (!whatHappened.value.trim()) {
-            showMessage("Please enter what happened.", false);
+        selectedCategory = whatHappened.value;
+        if (!APPROVED_COMPLAINT_CATEGORIES.includes(selectedCategory)) {
+            showMessage("Please select a valid offense category.", false);
             whatHappened.focus();
             return;
         }
@@ -798,9 +807,10 @@ async function saveComplaint(event) {
             {
 
                 p_what_happened:
-                    whatHappened
-                        .value
-                        .trim(),
+                    selectedCategory,
+
+                p_complaint_category:
+                    selectedCategory,
 
                 p_who_involved:
                     whoInvolved
