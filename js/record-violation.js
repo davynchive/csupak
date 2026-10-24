@@ -1187,6 +1187,14 @@ async function saveViolation(
         return;
     }
 
+    if (savedViolationId === null && violationType.value === "Illegal Parking" && !selectedPhoto) {
+    showMessage("A photo attachment is required for Illegal Parking.", false);
+
+    photoInput.click();
+
+    return;
+    }
+
     if (
         selectedPhoto &&
         !validatePhoto(
