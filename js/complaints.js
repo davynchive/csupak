@@ -343,6 +343,7 @@ function resetComplaintForm() {
     lastCallSlipIssue = "";
     savedComplaintId = null;
     complaintForm.reset();
+    for (const [field] of requiredComplaintFields()) field.setCustomValidity("");
     if (complaintCoursesReady) complainantCourseId.value = "";
     complainantYearLevel.value = "";
     if (receivedBy) receivedBy.value = currentProfile ? currentProfile.full_name : "";
@@ -784,6 +785,33 @@ async function createCallSlip(complaintId) {
    SAVE COMPLAINT
 ===================================================== */
 
+// HTML required does not reject whitespace in text controls; keep native and JS feedback aligned.
+function requiredComplaintFields() {
+    return [
+        [whoInvolved, "Who Was Involved"],
+        [incidentDatetime, "When"],
+        [locationInput, "Where"],
+        [howHappened, "How"],
+        [complainantName, "Complainant Name"],
+        [complainantStudentId, "Student ID"]
+    ];
+}
+function updateRequiredComplaintValidity(field, label) {
+    const invalid = !!field.value && !field.value.trim();
+    field.setCustomValidity(invalid ? "Please complete " + label + "." : "");
+}
+function validateRequiredComplaintFields() {
+    for (const [field, label] of requiredComplaintFields()) {
+        updateRequiredComplaintValidity(field, label);
+        if (!field.value.trim()) {
+            showMessage("Please complete " + label + ".", false);
+            field.focus();
+            return false;
+        }
+    }
+    return true;
+}
+
 async function saveComplaint(event) {
     event.preventDefault();
     if (isSavingComplaint) return;
@@ -809,6 +837,7 @@ async function saveComplaint(event) {
     let courseYearSnapshot = null;
     let selectedCategory = null;
     if (!retry) {
+        if (!validateRequiredComplaintFields()) return;
         if (!complaintCoursesReady) {
             showMessage("Courses are unavailable. Reload before saving a new complaint.", false);
             return;
@@ -848,8 +877,10 @@ async function saveComplaint(event) {
             whatHappened.focus();
             return;
         }
-        if (!dateReported.value) {
-            showMessage("Please enter the date reported.", false);
+        const reportedDate = new Date(dateReported.value + "T00:00:00Z");
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(dateReported.value) || !Number.isFinite(reportedDate.getTime()) ||
+            reportedDate.toISOString().slice(0, 10) !== dateReported.value) {
+            showMessage("Please enter a valid date reported.", false);
             dateReported.focus();
             return;
         }
@@ -1098,4 +1129,7 @@ async function initialize() {
 }
 
 
+for (const [field, label] of requiredComplaintFields()) {
+    field.addEventListener("input", () => updateRequiredComplaintValidity(field, label));
+}
 initialize();
