@@ -208,6 +208,82 @@ const callRemarks =
 let currentProfile = null;
 let savedComplaintId = null;
 let isSavingComplaint = false;
+let lastCallSlipIssue = "";
+
+// Availability is advisory; the database UNIQUE constraint is authoritative.
+const callNumberAvailability = new Map();
+let callAvailabilityToken = 0;
+let callAvailabilityMessage = null;
+function validCallNumber(value) { return ["1", "2", "3"].includes(String(value)) && value !== ""; }
+function callAvailabilityState(complaintId) { return callNumberAvailability.get(String(complaintId)); }
+function callAvailabilityNote(text) {
+    if (!callAvailabilityMessage) {
+        callAvailabilityMessage = document.createElement("p");
+        callAvailabilityMessage.className = "mt-2 text-xs text-gray-500";
+        callAvailabilityMessage.setAttribute("role", "status");
+        callNumber.insertAdjacentElement("afterend", callAvailabilityMessage);
+    }
+    callAvailabilityMessage.textContent = text;
+    callAvailabilityMessage.hidden = !text;
+}
+function applyCallAvailability(complaintId) {
+    const state = complaintId == null ? null : callAvailabilityState(complaintId);
+    const used = state?.used || new Set();
+    for (const option of callNumber.options) {
+        if (validCallNumber(option.value)) option.disabled = used.has(Number(option.value));
+    }
+    if (state?.ready && used.has(Number(callNumber.value))) callNumber.selectedIndex = -1;
+    const allUsed = state?.ready && used.size === 3;
+    callAvailabilityNote(state?.loading ? "Checking available call numbers..." : state?.error ?
+        "Call availability could not be checked. Try saving again to recheck before any insert." : allUsed ?
+        "All three call numbers are already recorded for this complaint." : used.size ?
+        "Already recorded: " + Array.from(used).sort().join(", ") + ". Please choose another available call." : "");
+    return {blocked: !!state && (!state.ready || state.loading || allUsed), allUsed};
+}
+async function readUsedCallNumbers(complaintId) {
+    const result = await supabaseClient.from("call_slips")
+        .select("call_number", {count:"exact"}).eq("complaint_id", complaintId)
+        .order("call_number", {ascending:true}).range(0, 3);
+    if (result.error) throw result.error;
+    if (!Array.isArray(result.data) || !Number.isSafeInteger(result.count) || result.count < 0 || result.count > 3 ||
+        result.data.length !== result.count) throw new Error("Incomplete call availability.");
+    const used = new Set();
+    for (const row of result.data) {
+        if (!row || !validCallNumber(row.call_number) || used.has(Number(row.call_number))) throw new Error("Invalid call availability.");
+        used.add(Number(row.call_number));
+    }
+    return used;
+}
+function callConflictMessage(number, used, uncertain = false) {
+    if (used?.size === 3) return uncertain ? "The save could not be confirmed, and all three call numbers are now recorded. Verify the existing calls in Interview Tracking." : "All three call numbers are already recorded for this complaint. Please use the existing calls.";
+    if (used?.has(number)) return uncertain ?
+        "The save could not be confirmed, but this call number is now recorded. Verify it in Interview Tracking before creating another call. It will not be inserted again." :
+        "This call number already exists for this complaint. Please choose another available call.";
+    return "Call Slip save could not be confirmed. Verify whether it was saved before submitting again.";
+}
+function confirmedCallSlip(row, complaintId, number) {
+    return row && ((typeof row.id === "number" && Number.isSafeInteger(row.id) && row.id > 0) ||
+        (typeof row.id === "string" && /^[1-9]\d*$/.test(row.id))) &&
+        String(row.complaint_id) === String(complaintId) && validCallNumber(row.call_number) && Number(row.call_number) === number;
+}
+
+async function refreshComplaintCallAvailability(complaintId) {
+    const token = ++callAvailabilityToken;
+    const key = String(complaintId);
+    const isCurrent = () => token === callAvailabilityToken && String(savedComplaintId) === key;
+    callNumberAvailability.set(key, {used:new Set(),ready:false,loading:true});
+    updateComplaintFormState();
+    try {
+        const used = await readUsedCallNumbers(complaintId);
+        if (!isCurrent()) return null;
+        callNumberAvailability.set(key, {used,ready:true,loading:false});
+        return used;
+    } catch (_) {
+        if (isCurrent()) callNumberAvailability.set(key, {used:new Set(),ready:false,loading:false,error:true});
+        return null;
+    } finally { if (isCurrent()) updateComplaintFormState(); }
+}
+
 
 function validateCallSlipFields() {
     const validDate = value => {
@@ -254,11 +330,17 @@ function updateComplaintFormState() {
     submitComplaintButton.disabled = isSavingComplaint || (!complaintInitReady && !retry);
     submitComplaintButton.textContent = isSavingComplaint
         ? (retry ? "Saving Call Slip..." : "Saving...") : (retry ? "Retry Call Slip" : "Save Complaint");
+    const availability = applyCallAvailability(savedComplaintId);
+    callNumber.disabled = isSavingComplaint || availability.blocked;
+    if (retry && availability.allUsed) submitComplaintButton.disabled = true;
     clearFormButton.disabled = isSavingComplaint;
     clearFormButton.textContent = retry ? "Start New Complaint" : "Clear";
 }
 
 function resetComplaintForm() {
+    callAvailabilityToken++;
+    callNumberAvailability.clear();
+    lastCallSlipIssue = "";
     savedComplaintId = null;
     complaintForm.reset();
     if (complaintCoursesReady) complainantCourseId.value = "";
@@ -269,7 +351,7 @@ function resetComplaintForm() {
 }
 
 function showCallSlipRetryMessage() {
-    showMessage("Complaint #" + savedComplaintId + " was saved, but the Call Slip could not be created. Retry Call Slip will use this existing complaint.", false);
+    showMessage("Complaint #" + savedComplaintId + " is already saved. " + (lastCallSlipIssue || "The Call Slip could not be created. Retry Call Slip will use this existing complaint."), false);
 }
 
 
@@ -625,41 +707,12 @@ function hideMessage() {
    CREATE CALL SLIP
 ===================================================== */
 
-async function createCallSlip(
-    complaintId
-) {
-
-    /*
-        Both OSWE Admin and OSWE Staff
-        are allowed to create Call Slips.
-    */
-
-    if (
-        currentProfile.role !==
-            "oswe_admin" &&
-        currentProfile.role !==
-            "oswe_staff"
-    ) {
-
-        return false;
-    }
-
-
-    if (!callDate.value) {
-
-        showMessage(
-            "Please enter the Call Slip date.",
-            false
-        );
-
-        return false;
-    }
-
-
-    const result =
-        await supabaseClient
-            .from("call_slips")
-            .insert({
+async function createCallSlip(complaintId) {
+    lastCallSlipIssue = "";
+    if (!currentProfile || !["oswe_admin", "oswe_staff"].includes(currentProfile.role)) return false;
+    if (!validCallNumber(callNumber.value)) { lastCallSlipIssue = "Please select Call Number 1, 2, or 3."; return false; }
+    const number = Number(callNumber.value);
+    const payload = {
 
                 complaint_id:
                     complaintId,
@@ -692,9 +745,7 @@ async function createCallSlip(
                     null,
 
                 call_number:
-                    Number(
-                        callNumber.value
-                    ),
+                    number,
 
                 remarks:
                     callRemarks
@@ -707,21 +758,25 @@ async function createCallSlip(
 
                 interview_status:
                     null
-            });
-
-
-    if (result.error) {
-
-        console.error(
-            "Unable to create Call Slip:",
-            result.error
-        );
-
+            };
+    const used = await refreshComplaintCallAvailability(complaintId);
+    if (!used) { lastCallSlipIssue = "Call availability could not be checked. Retry will recheck before saving."; return false; }
+    if (used.has(number)) { lastCallSlipIssue = callConflictMessage(number, used); return false; }
+    try {
+        const result = await supabaseClient.from("call_slips").insert(payload)
+            .select("id, complaint_id, call_number").single();
+        if (result.error) throw result.error;
+        if (!confirmedCallSlip(result.data, complaintId, number)) throw new Error("Insert not confirmed.");
+        // A read failure after confirmed insertion does not turn the successful write into a retry.
+        await refreshComplaintCallAvailability(complaintId);
+        return true;
+    } catch (error) {
+        const reconciled = await refreshComplaintCallAvailability(complaintId);
+        lastCallSlipIssue = error?.code === "23505" ?
+            (reconciled?.has(number) ? callConflictMessage(number, reconciled) : "A duplicate Call Slip was rejected. Recheck existing calls before choosing another number.") :
+            callConflictMessage(number, reconciled, true);
         return false;
     }
-
-
-    return true;
 }
 
 
@@ -738,6 +793,15 @@ async function saveComplaint(event) {
         return;
     }
     const retry = savedComplaintId !== null;
+    if (retry) {
+        isSavingComplaint = true;
+        updateComplaintFormState();
+        let used;
+        try { used = await refreshComplaintCallAvailability(savedComplaintId); }
+        finally { isSavingComplaint = false; updateComplaintFormState(); }
+        if (!used) { lastCallSlipIssue = "Call availability could not be checked. Try again before saving."; showCallSlipRetryMessage(); return; }
+        if (used.size === 3) { lastCallSlipIssue = "All three call numbers are already recorded for this complaint."; showCallSlipRetryMessage(); return; }
+    }
     const needsCallSlip = retry || (addCallSlipCheckbox && addCallSlipCheckbox.checked);
     let incidentTimestamp = null;
     hideMessage();
