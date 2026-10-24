@@ -428,6 +428,7 @@ async function unlockComplaints(event) {
     closeComplaintHistory(false);
     closeFullDetails(false);
     const token = ++complaintRequestToken;
+    resetComplaintReport();
     const isCurrent = () => token === complaintRequestToken;
     complaintsLoading = true;
     complaintsComplete = false;
@@ -487,6 +488,7 @@ async function unlockComplaints(event) {
         trackingContent.classList.remove("hidden");
     } catch (error) {
         if (!isCurrent()) return;
+        resetComplaintReport();
         // Do not log the RPC response, which may contain sensitive details.
         allComplaints = [];
         currentPasskey = "";
@@ -502,6 +504,7 @@ async function unlockComplaints(event) {
             complaintsLoading = false;
             restoreUnlockControl();
             renderComplaints();
+            if (complaintsComplete && currentPasskey) void loadComplaintReportSources();
         }
     }
 }
@@ -511,6 +514,7 @@ function lockComplaints() {
     closeComplaintHistory(false);
     closeFullDetails(false);
     complaintRequestToken++;
+    resetComplaintReport();
     complaintsLoading = false;
     complaintsComplete = false;
     complaintsLoadError = null;
@@ -1077,6 +1081,7 @@ async function updateStatus(complaintId, newStatus, control) {
         if (!isCurrent()) return;
         const current = allComplaints.find(item => String(item.id) === String(complaintId));
         if (current) current.complaint_status = newStatus;
+        renderComplaintReport();
         showStatusNotification();
     } catch (_) {
         if (!isCurrent()) return;
@@ -1343,4 +1348,315 @@ async function initialize() {
 }
 
 
+
+
+/* Monthly report: all complaint values come exclusively from the unlocked dataset. */
+const COMPLAINT_REPORT_CATEGORIES = [
+    "Offenses Against Security", "Offenses Against Property", "Offenses Against Order",
+    "Offenses Involving Dishonesty", "Offenses Against Public Morals"
+];
+const complaintReportPeriod = document.getElementById("complaintReportPeriod");
+const complaintReportGenerate = document.getElementById("generateComplaintReport");
+const complaintReportState = document.getElementById("complaintReportState");
+const complaintReportOutput = document.getElementById("complaintReportOutput");
+let complaintReportMappings = new Map();
+let complaintReportReady = false;
+let complaintReportLoadToken = 0;
+let complaintReportSession = null;
+
+function reportId(value) {
+    if ((typeof value !== "string" && typeof value !== "number") ||
+        (typeof value === "number" && !Number.isSafeInteger(value)) || !/^[1-9]\d*$/.test(String(value))) {
+        throw new Error("Invalid reporting ID.");
+    }
+    return String(value);
+}
+function complaintDatePeriod(value) {
+    if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value) || value.startsWith("0000")) {
+        throw new Error("Invalid report date.");
+    }
+    const date = new Date(value + "T00:00:00Z");
+    if (!Number.isFinite(date.getTime()) || date.toISOString().slice(0, 10) !== value) throw new Error("Invalid report date.");
+    return value.slice(0, 7);
+}
+function currentComplaintManilaPeriod() {
+    const parts = new Intl.DateTimeFormat("en-US", {timeZone:"Asia/Manila",year:"numeric",month:"2-digit"}).formatToParts(new Date());
+    return parts.find(part => part.type === "year").value + "-" + parts.find(part => part.type === "month").value;
+}
+function complaintPeriodLabel(period) {
+    return new Intl.DateTimeFormat("en-US", {timeZone:"Asia/Manila",month:"long",year:"numeric"})
+        .format(new Date(period + "-15T00:00:00Z"));
+}
+function resetComplaintReport() {
+    closeComplaintCollegeBreakdown();
+    document.getElementById("complaintReportMonthTitle").textContent = "Selected Month";
+    complaintReportLoadToken++;
+    complaintReportReady = false;
+    complaintReportSession = null;
+    complaintReportMappings = new Map();
+    complaintReportGenerate.disabled = true;
+    complaintReportPeriod.disabled = true;
+    complaintReportPeriod.replaceChildren();
+    complaintReportOutput.replaceChildren();
+    complaintReportState.textContent = "Loading report data...";
+}
+function complaintReportAuthorized() {
+    return currentProfile?.role === "oswe_admin" && !!currentPasskey && complaintsComplete && !complaintsLoading;
+}
+function complaintReportCanGenerate() {
+    return complaintReportAuthorized() && complaintReportReady && complaintReportSession === complaintRequestToken &&
+        Array.from(complaintReportPeriod.options).some(option => option.value === complaintReportPeriod.value);
+}
+function setComplaintReportUnavailable() {
+    closeComplaintCollegeBreakdown();
+    document.getElementById("complaintReportMonthTitle").textContent = "Report unavailable";
+    complaintReportReady = false;
+    complaintReportMappings = new Map();
+    complaintReportGenerate.disabled = true;
+    complaintReportPeriod.disabled = true;
+    complaintReportOutput.replaceChildren();
+    complaintReportState.textContent = "Report unavailable. Lock and unlock again to reload complete report data.";
+}
+function populateComplaintReportPeriods() {
+    const current = currentComplaintManilaPeriod();
+    const recordPeriods = allComplaints.map(record => complaintDatePeriod(record.date_reported)).sort();
+    const start = recordPeriods.length && recordPeriods[0] < current ? recordPeriods[0] : current;
+    const end = recordPeriods.length && recordPeriods[recordPeriods.length - 1] > current ? recordPeriods[recordPeriods.length - 1] : current;
+    let [year, month] = start.split("-").map(Number);
+    complaintReportPeriod.replaceChildren();
+    const key = () => String(year).padStart(4,"0") + "-" + String(month).padStart(2,"0");
+    while (key() <= end) {
+        const option = document.createElement("option");
+        option.value = key();
+        option.textContent = complaintPeriodLabel(key());
+        complaintReportPeriod.appendChild(option);
+        if (++month > 12) { month = 1; year++; }
+    }
+    let saved = null;
+    try { saved = localStorage.getItem("csupakComplaintReportPeriod"); } catch (_) { /* Storage is optional. */ }
+    complaintReportPeriod.value = Array.from(complaintReportPeriod.options).some(option => option.value === saved) ? saved : current;
+}
+async function loadComplaintReportSources() {
+    if (!complaintReportAuthorized()) return;
+    resetComplaintReport();
+    const session = complaintRequestToken;
+    const token = complaintReportLoadToken;
+    const passkey = currentPasskey;
+    const isCurrent = () => session === complaintRequestToken && token === complaintReportLoadToken &&
+        currentPasskey === passkey && complaintReportAuthorized();
+    const mappings = new Map();
+    const expectedIds = new Set();
+    try {
+        for (const record of allComplaints) {
+            const id = reportId(record.id);
+            if (expectedIds.has(id)) throw new Error("Duplicate complaint.");
+            expectedIds.add(id);
+            complaintDatePeriod(record.date_reported);
+            if (record.complaint_category !== null && typeof record.complaint_category !== "string") throw new Error("Invalid category.");
+        }
+        let expectedTotal = null;
+        let offset = 0;
+        do {
+            if (!isCurrent()) return;
+            const result = await supabaseClient.rpc("get_complaint_report_sources_with_passkey",
+                {entered_passkey: passkey}, {count:"exact"})
+                .order("complaint_id", {ascending:true}).range(offset, offset + COMPLAINT_BATCH_SIZE - 1);
+            if (!isCurrent()) return;
+            if (result.error) throw result.error;
+            if (!Array.isArray(result.data) || !Number.isSafeInteger(result.count) || result.count < 0 || result.data.length > COMPLAINT_BATCH_SIZE) throw new Error("Invalid report batch.");
+            if (expectedTotal === null) expectedTotal = result.count;
+            if (result.count !== expectedTotal || (!result.data.length && offset < expectedTotal)) throw new Error("Incomplete report sources.");
+            for (const source of result.data) {
+                if (!source || typeof source !== "object" || Array.isArray(source)) throw new Error("Invalid report source.");
+                const id = reportId(source.complaint_id);
+                if (mappings.has(id) || !expectedIds.has(id)) throw new Error("Report ID mismatch.");
+                const course = source.complainant_course_id === null ? null : reportId(source.complainant_course_id);
+                const college = source.college_id === null ? null : reportId(source.college_id);
+                if (college !== null && (course === null || typeof source.college_code !== "string" || !source.college_code.trim() ||
+                    typeof source.college_name !== "string" || !source.college_name.trim())) throw new Error("Invalid college mapping.");
+                if (college === null && (source.college_code !== null || source.college_name !== null)) throw new Error("Invalid unresolved mapping.");
+                mappings.set(id, {courseId:course, collegeId:college, code:source.college_code, name:source.college_name});
+            }
+            offset += result.data.length;
+        } while (offset < expectedTotal);
+        if (offset !== expectedTotal || mappings.size !== expectedTotal || mappings.size !== expectedIds.size ||
+            Array.from(expectedIds).some(id => !mappings.has(id))) throw new Error("Report source set mismatch.");
+        // Also detect course changes between the two complete reads.
+        for (const record of allComplaints) {
+            const course = record.complainant_course_id === null ? null : reportId(record.complainant_course_id);
+            if (course !== mappings.get(reportId(record.id)).courseId) throw new Error("Course mapping changed.");
+        }
+        const collegeLabels = new Map();
+        for (const mapping of mappings.values()) {
+            if (mapping.collegeId === null) continue;
+            const label = JSON.stringify([mapping.code, mapping.name]);
+            if (collegeLabels.has(mapping.collegeId) && collegeLabels.get(mapping.collegeId) !== label) throw new Error("College mapping changed.");
+            collegeLabels.set(mapping.collegeId, label);
+        }
+        if (!isCurrent()) return;
+        populateComplaintReportPeriods();
+        complaintReportMappings = mappings;
+        complaintReportSession = session;
+        complaintReportReady = true;
+        complaintReportPeriod.disabled = false;
+        renderComplaintReport();
+    } catch (_) {
+        if (isCurrent()) setComplaintReportUnavailable();
+    }
+}
+function aggregateComplaintReport(period) {
+    const categories = new Map(COMPLAINT_REPORT_CATEGORIES.map(category => [category, 0]));
+    const statuses = new Map([["Pending",0],["On-going",0],["Resolved",0]]);
+    const colleges = new Map();
+    let total = 0, unknownStatuses = 0;
+    for (const record of allComplaints) {
+        if (complaintDatePeriod(record.date_reported) !== period) continue;
+        total++;
+        const category = record.complaint_category === null ? "Uncategorized" :
+            COMPLAINT_REPORT_CATEGORIES.includes(record.complaint_category) ? record.complaint_category : "Unrecognized Category";
+        categories.set(category, (categories.get(category) || 0) + 1);
+        if (statuses.has(record.complaint_status)) statuses.set(record.complaint_status, statuses.get(record.complaint_status) + 1);
+        else unknownStatuses++;
+        const mapping = complaintReportMappings.get(reportId(record.id));
+        if (!mapping) throw new Error("Missing mapping.");
+        const key = mapping.collegeId; // null is distinct from every real college ID.
+        if (!colleges.has(key)) colleges.set(key, {id:key,code:key === null ? "UNMAPPED" : mapping.code,
+            name:key === null ? "Unmapped College" : mapping.name,total:0,categories:new Map()});
+        const college = colleges.get(key);
+        college.total++;
+        college.categories.set(category, (college.categories.get(category) || 0) + 1);
+    }
+    const orderedCategories = [...COMPLAINT_REPORT_CATEGORIES, "Uncategorized", "Unrecognized Category"]
+        .filter(category => COMPLAINT_REPORT_CATEGORIES.includes(category) || categories.has(category));
+    const orderedColleges = Array.from(colleges.values()).sort((a,b) => a.code.localeCompare(b.code) || a.name.localeCompare(b.name));
+    if (Array.from(categories.values()).reduce((a,b)=>a+b,0) !== total || orderedColleges.reduce((sum,c)=>sum+c.total,0) !== total) throw new Error("Report totals mismatch.");
+    return {total,statuses,unknownStatuses,categories:orderedCategories.map(name=>[name,categories.get(name)||0]),colleges:orderedColleges};
+}
+function escapeComplaintReport(value) {
+    return String(value).replace(/[&<>"']/g, character => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[character]);
+}
+function complaintReportTable(headers, rows) {
+    const esc = escapeComplaintReport;
+    return '<table class="complaint-report-table"><thead><tr>' + headers.map(label=>'<th scope="col">'+esc(label)+'</th>').join('') +
+        '</tr></thead><tbody>' + (rows.length ? rows.map(row=>'<tr>'+row.map(value=>'<td>'+esc(value)+'</td>').join('')+'</tr>').join('') :
+        '<tr><td colspan="'+headers.length+'">No complaints for this month.</td></tr>') + '</tbody></table>';
+}
+function complaintReportMarkup(data, period) {
+    const esc = escapeComplaintReport;
+    const summaries = [["Total Complaints",data.total],...data.statuses];
+    const notes = [];
+    const uncategorized = data.categories.find(([name]) => name === "Uncategorized")?.[1] || 0;
+    const unrecognized = data.categories.find(([name]) => name === "Unrecognized Category")?.[1] || 0;
+    const unmapped = data.colleges.find(college => college.id === null);
+    if (uncategorized) notes.push(uncategorized + (uncategorized === 1 ? " complaint is uncategorized" : " complaints are uncategorized"));
+    if (unmapped) notes.push(unmapped.total + (unmapped.total === 1 ? " complaint has no mapped college" : " complaints have no mapped college"));
+    if (unrecognized) notes.push(unrecognized + (unrecognized === 1 ? " complaint has an unrecognized category" : " complaints have unrecognized categories"));
+    if (data.unknownStatuses) notes.push(data.unknownStatuses + (data.unknownStatuses === 1 ? " complaint has an unrecognized status" : " complaints have unrecognized statuses") + "; the three status totals exclude these complaints");
+    return '<section class="report-summary" aria-labelledby="report-summary-title"><h2 id="report-summary-title">Summary</h2>' +
+        '<p class="report-context">Current statuses of complaints reported during '+esc(complaintPeriodLabel(period))+'.</p>' +
+        '<div class="report-summary-grid">'+summaries.map(([name,count])=>
+            '<div class="report-summary-box"><strong>'+esc(count)+'</strong><span>'+esc(name)+'</span></div>').join('')+'</div></section>' +
+        (notes.length ? '<aside class="report-data-note"><h2>Data Quality Note</h2><p>'+esc(notes.join('; '))+'.</p></aside>' : '') +
+        '<section class="report-section"><h2>Complaint Totals by Category</h2>' +
+        complaintReportTable(["Category","Total Complaints"],data.categories)+'</section>' +
+        '<section class="report-section"><h2>Complaint Totals by College</h2>' +
+        complaintReportTable(["College Code","College","Total Complaints"],data.colleges.map(college=>[college.code,college.name,college.total]))+'</section>' +
+        '<section class="report-section report-cross-tab"><h2>Complaint Category Breakdown by College</h2>' +
+        complaintReportTable(["College",...data.categories.map(([name])=>name),"Total"],
+            data.colleges.map(college=>[college.code+' / '+college.name,...data.categories.map(([name])=>college.categories.get(name)||0),college.total]))+'</section>';
+}
+function complaintReportDocument(markup, period, generated) {
+    const esc = escapeComplaintReport;
+    return '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>CSUPAK Monthly Complaint Report</title><style>' +
+        '@page{size:A4 landscape;margin:14mm 12mm}' +
+        '*{box-sizing:border-box}body{margin:0;background:#edf0ed;color:#26332b;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:1.5}' +
+        '.report-document{max-width:273mm;margin:28px auto;padding:30px 34px;background:#fff;box-shadow:0 2px 18px #0000000d}' +
+        '.report-header{border-bottom:2px solid #006b21;padding-bottom:18px;margin-bottom:22px;break-inside:avoid}' +
+        '.report-brand{font-size:28px;font-weight:800;letter-spacing:1px;color:#006b21;line-height:1.1}.report-system{margin:5px 0 18px;font-size:11px;color:#657269}' +
+        'h1{margin:0;font-size:21px;letter-spacing:1.2px;line-height:1.3}.report-period{margin:6px 0 10px;font-size:19px;font-weight:600;color:#006b21}' +
+        '.report-meta{display:flex;flex-wrap:wrap;gap:4px 24px;font-size:10px;color:#657269}.report-meta p{margin:0}' +
+        'h2{margin:0 0 9px;font-size:14px;font-weight:700;color:#164d28;break-after:avoid;page-break-after:avoid}.report-context{margin:0 0 12px;font-size:11px;color:#657269}' +
+        '.report-summary{break-inside:avoid}.report-summary-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}' +
+        '.report-summary-box{padding:13px 15px;border:1px solid #dce5de;border-top:3px solid #006b21;border-radius:5px}.report-summary-box strong{display:block;font-size:28px;line-height:1.2;color:#006b21}.report-summary-box span{display:block;margin-top:4px;font-size:11px;color:#59685e}' +
+        '.report-data-note{margin:18px 0;padding:11px 14px;background:#f5f7f4;border-left:3px solid #a9bcae;break-inside:avoid}.report-data-note h2{font-size:11px;margin-bottom:3px;color:#526056}.report-data-note p{margin:0;font-size:10px;color:#657269}' +
+        '.report-section{margin-top:24px}.complaint-report-table{width:100%;border-collapse:collapse;font-size:11px;line-height:1.4}.complaint-report-table th{background:#006b21;color:white;font-weight:600;text-align:left;padding:9px 10px;border:1px solid #006b21}' +
+        '.complaint-report-table td{padding:8px 10px;border-bottom:1px solid #dce5de;vertical-align:top;overflow-wrap:anywhere}.complaint-report-table tbody tr:nth-child(even){background:#f8faf8}.complaint-report-table td:last-child,.complaint-report-table th:last-child{text-align:right;font-variant-numeric:tabular-nums;width:110px}' +
+        'thead{display:table-header-group}tr{break-inside:avoid;page-break-inside:avoid}.report-cross-tab table{table-layout:fixed;font-size:9px}.report-cross-tab th{padding:7px 5px;overflow-wrap:anywhere;vertical-align:top}.report-cross-tab td{padding:7px 5px}.report-cross-tab th:first-child{width:22%}.report-cross-tab th:last-child,.report-cross-tab td:last-child{width:6%}.report-cross-tab td:not(:first-child){text-align:right;font-variant-numeric:tabular-nums}' +
+        '.report-footer{margin-top:28px;padding-top:10px;border-top:1px solid #dce5de;display:flex;justify-content:space-between;gap:12px;font-size:9px;color:#778279;break-inside:avoid}' +
+        '@media screen and (max-width:640px){.report-document{margin:0;padding:20px 14px}.report-summary-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.report-cross-tab{overflow-x:auto}.report-cross-tab table{min-width:750px}}' +
+        '@media print{html,body{background:white}.report-document{max-width:none;margin:0;padding:0;box-shadow:none}.report-summary-grid{grid-template-columns:repeat(4,minmax(0,1fr))}.report-cross-tab{overflow:visible}.report-cross-tab table{min-width:0}th{-webkit-print-color-adjust:exact;print-color-adjust:exact}}' +
+        '</style></head><body><main class="report-document"><header class="report-header"><div class="report-brand">CSUPAK</div><p class="report-system">Student Violation Tracking System</p><h1>MONTHLY COMPLAINT REPORT</h1><p class="report-period">'+esc(complaintPeriodLabel(period))+'</p><div class="report-meta"><p>Generated: '+esc(generated)+'</p><p>Timezone: Asia/Manila</p></div></header>' +
+        markup + '<footer class="report-footer"><span>CSUPAK &mdash; Student Violation Tracking System</span><span>Monthly Complaint Report</span></footer></main></body></html>';
+}
+function complaintDashboardMarkup(data, period) {
+    const esc = escapeComplaintReport;
+    const summaries = [["Total Complaints",data.total],...data.statuses];
+    const categoryCards = data.categories.map(([name,count]) =>
+        '<div class="complaint-category-card"><strong>'+count+'</strong><p>'+esc(name)+'</p></div>').join('');
+    const collegeCards = data.colleges.map(college =>
+        '<div class="complaint-college-card"><strong>'+college.total+'</strong><p class="college-code">'+esc(college.code)+'</p><p class="college-name">'+esc(college.name)+'</p></div>').join('');
+    const notes = [];
+    const uncategorized = data.categories.find(([name])=>name==='Uncategorized')?.[1] || 0;
+    const unrecognized = data.categories.find(([name])=>name==='Unrecognized Category')?.[1] || 0;
+    const unmapped = data.colleges.find(college=>college.id === null)?.total || 0;
+    if (uncategorized) notes.push(uncategorized+' '+(uncategorized===1?'complaint is':'complaints are')+' uncategorized');
+    if (unmapped) notes.push(unmapped+' '+(unmapped===1?'has':'have')+' no mapped college');
+    if (unrecognized) notes.push(unrecognized+' '+(unrecognized===1?'has an':'have')+' unrecognized '+(unrecognized===1?'category':'categories'));
+    if (data.unknownStatuses) notes.push(data.unknownStatuses+' '+(data.unknownStatuses===1?'has an unrecognized status':'have unrecognized statuses')+' (excluded from the three status totals)');
+    return '<div class="complaint-summary-grid">'+summaries.map(([name,count])=>
+            '<div class="complaint-summary-card"><strong>'+count+'</strong><p>'+esc(name)+'</p></div>').join('')+'</div>' +
+        (notes.length?'<aside class="complaint-data-note"><span>Data note:</span> '+esc(notes.join('; '))+'.</aside>':'')+
+        '<h4 class="complaint-metric-heading">Complaints by Category</h4><div class="complaint-category-grid">'+categoryCards+'</div>'+
+        '<div class="complaint-college-heading"><h4 class="complaint-metric-heading">Complaints by College</h4><button id="viewComplaintCollegeBreakdown" type="button" class="rounded-lg border border-gray-300 px-3 py-2 text-sm font-semibold text-[#006B21]">View College Breakdown</button></div>'+
+        '<div class="complaint-college-grid">'+(collegeCards || '<p class="text-sm text-green-100">No complaints for this month.</p>')+'</div>';
+}
+function closeComplaintCollegeBreakdown() {
+    const modal = document.getElementById("complaintCollegeBreakdownModal");
+    if (modal.open) modal.close();
+    document.getElementById("complaintCollegeBreakdownContent").replaceChildren();
+}
+function renderComplaintCollegeBreakdown(data, period) {
+    document.getElementById("complaintCollegeBreakdownPeriod").textContent = complaintPeriodLabel(period);
+    document.getElementById("complaintCollegeBreakdownContent").innerHTML = complaintReportTable(
+        ["College",...data.categories.map(([name])=>name),"Total"],
+        data.colleges.map(college=>[college.code+' / '+college.name,...data.categories.map(([name])=>college.categories.get(name)||0),college.total]));
+}
+
+function renderComplaintReport() {
+    if (!complaintReportCanGenerate()) { complaintReportGenerate.disabled = true; return; }
+    try {
+        const data = aggregateComplaintReport(complaintReportPeriod.value);
+        document.getElementById("complaintReportMonthTitle").textContent = complaintPeriodLabel(complaintReportPeriod.value);
+        complaintReportOutput.innerHTML = complaintDashboardMarkup(data, complaintReportPeriod.value);
+        renderComplaintCollegeBreakdown(data, complaintReportPeriod.value);
+        document.getElementById("viewComplaintCollegeBreakdown").addEventListener("click", () => {
+            document.getElementById("complaintCollegeBreakdownModal").showModal();
+        });
+        complaintReportState.textContent = "";
+        complaintReportGenerate.disabled = false;
+    } catch (_) { setComplaintReportUnavailable(); }
+}
+function generateComplaintReport() {
+    if (!complaintReportCanGenerate()) return;
+    let markup;
+    try { markup = complaintReportMarkup(aggregateComplaintReport(complaintReportPeriod.value), complaintReportPeriod.value); }
+    catch (_) { setComplaintReportUnavailable(); return; }
+    const generated = new Intl.DateTimeFormat("en-PH", {timeZone:"Asia/Manila",dateStyle:"medium",timeStyle:"short"}).format(new Date());
+    const reportWindow = window.open("", "_blank");
+    if (!reportWindow) { alert("Please allow pop-ups to generate the report."); return; }
+    reportWindow.document.write(complaintReportDocument(markup, complaintReportPeriod.value, generated));
+    reportWindow.onload = () => reportWindow.print();
+    reportWindow.document.close();
+}
+complaintReportPeriod.addEventListener("change", () => {
+    try { localStorage.setItem("csupakComplaintReportPeriod", complaintReportPeriod.value); } catch (_) { /* Optional preference. */ }
+    renderComplaintReport();
+});
+complaintReportGenerate.addEventListener("click", generateComplaintReport);
+document.getElementById("closeComplaintCollegeBreakdown").addEventListener("click", closeComplaintCollegeBreakdown);
+document.getElementById("complaintCollegeBreakdownModal").addEventListener("click", event => {
+    if (event.target.id !== "complaintCollegeBreakdownModal") return;
+    const bounds = event.target.getBoundingClientRect();
+    if (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom) closeComplaintCollegeBreakdown();
+});
 initialize();
