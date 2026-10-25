@@ -104,7 +104,7 @@
 
             <a
                 href="record-violation.html"
-                class="mb-1 flex items-center rounded-lg px-4 py-2.5 text-sm font-medium text-green-50 hover\:bg-white/10"
+                class="mb-1 flex items-center rounded-lg px-4 py-2.5 text-sm font-medium text-green-50 hover:bg-white/10"
             >
                 Record Violation
             </a>
@@ -414,12 +414,36 @@
 
 
 <!-- STATUS NOTIFICATION -->
-    <div
-         id="statusNotification"
-        class="hidden"
-    >
-        Updated Successfully
+<div id="statusNotification" class="hidden">
+    Updated Successfully
+</div>
+
+<!-- ADD CALL SLIP NOTIFICATION -->
+<div id="callSlipNotification" class="call-slip-notification hidden"
+     role="status" aria-live="polite">
+
+    <div class="call-slip-notification-icon">✓</div>
+
+    <div class="call-slip-notification-content">
+        <p class="call-slip-notification-title">
+            Call Slip Added
+        </p>
+
+        <p class="call-slip-notification-message">
+            Call Slip saved successfully.
+        </p>
     </div>
+
+    <button
+        type="button"
+        id="closeCallSlipNotification"
+        class="call-slip-notification-close"
+        aria-label="Close notification"
+    >
+        &times;
+    </button>
+
+</div>
 
 
 <!-- CALL SLIP MODAL -->

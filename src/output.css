@@ -1318,3 +1318,89 @@
         transform: translate(-50%, -150px);
     }
 }
+
+/* =====================================================
+   ADD CALL SLIP SUCCESS NOTIFICATION - CENTER
+===================================================== */
+
+.call-slip-notification {
+    position: fixed;
+    top: 8%;
+    left: 50%;
+    z-index: 999999;
+
+    width: 350px;
+    max-width: calc(100vw - 40px);
+
+    display: flex;
+    align-items: center;
+    gap: 12px;
+
+    padding: 20px;
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    border-left: 5px solid #00852e;
+    border-radius: 12px;
+
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+
+    opacity: 0;
+    transform: translate(-50%, calc(-50% + 15px));
+
+    transition: opacity 0.3s ease, transform 0.3s ease;
+    pointer-events: none;
+}
+
+.call-slip-notification.show {
+    opacity: 1;
+    transform: translate(-50%, -50%);
+    pointer-events: auto;
+}
+
+.call-slip-notification-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    width: 36px;
+    height: 36px;
+    min-width: 36px;
+
+    background: #00852e;
+    color: white;
+    border-radius: 50%;
+
+    font-size: 20px;
+    font-weight: bold;
+}
+
+.call-slip-notification-content {
+    flex: 1;
+}
+
+.call-slip-notification-title {
+    margin: 0 0 4px;
+    color: #006b21;
+    font-size: 14px;
+    font-weight: 700;
+}
+
+.call-slip-notification-message {
+    margin: 0;
+    color: #374151;
+    font-size: 12px;
+}
+
+.call-slip-notification-close {
+    align-self: flex-start;
+    padding: 0;
+    border: none;
+    background: transparent;
+    color: #6b7280;
+    font-size: 20px;
+    cursor: pointer;
+}
+
+.call-slip-notification.hidden {
+    display: none;
+}

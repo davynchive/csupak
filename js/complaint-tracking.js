@@ -1596,8 +1596,8 @@ function createComplaintCard(complaint) {
 
     );
 
-    const complaintNumber = complaintIndex >= 0 ? complaintIndex + 1 : "—";
-
+    // Use the complaint's database ID so its number stays consistent.
+    const complaintNumber = complaint.id ?? "—";
  
 
     // Header follows the Interview Tracking complaint-group card style.
@@ -1980,55 +1980,49 @@ function showStatusNotification() {
 
 }
 
- 
+/* =====================================================
+   ADD CALL SLIP POP-UP NOTIFICATION
+===================================================== */
 
-function showStatusNotification() {
-
-    const notification =
-
-        document.getElementById("statusNotification");
-
- 
+function showCallSlipNotification() {
+    const notification = document.getElementById("callSlipNotification");
 
     if (!notification) {
-
-        console.error("statusNotification not found.");
-
+        console.error("callSlipNotification not found.");
         return;
-
     }
 
- 
+    clearTimeout(window.callSlipNotificationTimer);
 
     notification.classList.remove("hidden");
 
-    notification.style.display = "block";
+    requestAnimationFrame(() => {
+        notification.classList.add("show");
+    });
 
- 
+    window.callSlipNotificationTimer = setTimeout(() => {
+        notification.classList.remove("show");
+
+        setTimeout(() => {
+            notification.classList.add("hidden");
+        }, 300);
+    }, 3000);
+}
+
+const closeCallSlipNotificationButton =
+    document.getElementById("closeCallSlipNotification");
+
+closeCallSlipNotificationButton?.addEventListener("click", () => {
+    const notification = document.getElementById("callSlipNotification");
+
+    clearTimeout(window.callSlipNotificationTimer);
 
     notification.classList.remove("show");
 
- 
-
-    void notification.offsetWidth;
-
- 
-
-    notification.classList.add("show");
-
- 
-
-    setTimeout(function () {
-
-        notification.classList.remove("show");
-
+    setTimeout(() => {
         notification.classList.add("hidden");
-
-        notification.style.display = "none";
-
-    }, 2000);
-
-}
+    }, 300);
+});
 
  
 
@@ -2406,7 +2400,9 @@ async function saveCallSlip(event) {
 
             await refreshTrackingCallAvailability(complaintId);
 
-            if (isCurrent()) alert("Call Slip saved successfully.");
+            if (isCurrent()) {
+                showCallSlipNotification();
+            }
 
         } catch (error) {
 
