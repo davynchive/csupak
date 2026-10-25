@@ -61,6 +61,61 @@ const whatHappened =
         "whatHappened"
     );
 
+/* =====================================================
+   CUSTOM OFFENSE CATEGORY DROPDOWN
+===================================================== */
+
+const offenseDropdown = document.getElementById("offenseDropdown");
+const offenseButton = document.getElementById("offenseDropdownButton");
+const offenseLabel = document.getElementById("offenseDropdownLabel");
+const offenseMenu = document.getElementById("offenseDropdownMenu");
+const offenseArrow = document.getElementById("offenseDropdownArrow");
+const offenseOptions = document.querySelectorAll(".offense-dropdown-option");
+
+function toggleOffenseDropdown(show) {
+    if (!offenseMenu || !offenseButton || !offenseArrow) return;
+
+    offenseMenu.classList.toggle("hidden", !show);
+    offenseButton.setAttribute("aria-expanded", String(show));
+    offenseArrow.classList.toggle("rotated", show);
+}
+
+if (offenseButton && offenseMenu && whatHappened) {
+    offenseButton.addEventListener("click", () => {
+        toggleOffenseDropdown(offenseMenu.classList.contains("hidden"));
+    });
+
+    offenseOptions.forEach((option) => {
+        option.addEventListener("click", () => {
+            const value = option.dataset.value;
+
+            if (!APPROVED_COMPLAINT_CATEGORIES.includes(value)) return;
+
+            whatHappened.value = value;
+            offenseLabel.textContent = value;
+            offenseLabel.classList.remove("text-gray-500");
+
+            offenseOptions.forEach((item) => {
+                const selected = item === option;
+
+                item.classList.toggle("selected", selected);
+                item.setAttribute("aria-selected", String(selected));
+
+                const check = item.querySelector(".offense-check");
+                if (check) check.classList.toggle("hidden", !selected);
+            });
+
+            toggleOffenseDropdown(false);
+        });
+    });
+
+    document.addEventListener("click", (event) => {
+        if (offenseDropdown && !offenseDropdown.contains(event.target)) {
+            toggleOffenseDropdown(false);
+        }
+    });
+}
+
 const whoInvolved =
     document.getElementById(
         "whoInvolved"

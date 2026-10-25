@@ -204,26 +204,93 @@
                     <div class="grid grid-cols-1 gap-5 md:grid-cols-2">
 
 
-                       <!-- Replace the existing "What Happened" textarea block with this dropdown. -->
-                    <div>
-                        <label for="whatHappened" class="mb-2 block text-sm font-semibold text-gray-700">
-                            Offense Category <span aria-hidden="true">*</span>
-                        </label>
+    
+<!-- OFFENSE CATEGORY -->
+<div>
+    <label
+        for="whatHappened"
+        class="mb-2 block text-sm font-semibold text-gray-700"
+    >
+        Offense Category <span class="text-red-500">*</span>
+    </label>
 
-                        <select
-                            id="whatHappened"
-                            name="whatHappened"
-                            required
-                            class="w-full rounded-lg border border-gray-300 bg-gray-50 px-4 py-3 text-gray-800 outline-none transition focus:border-[#006B21] focus:bg-white focus:ring-2 focus:ring-green-100"
-                        >
-                            <option value="">Select an offense category</option>
-                            <option value="Offenses Against Security">Offenses Against Security</option>
-                            <option value="Offenses Against Property">Offenses Against Property</option>
-                            <option value="Offenses Against Order">Offenses Against Order</option>
-                            <option value="Offenses Involving Dishonesty">Offenses Involving Dishonesty</option>
-                            <option value="Offenses Against Public Morals">Offenses Against Public Morals</option>
-                        </select>
-                    </div>
+    <div class="relative" id="offenseDropdown">
+        <!-- Visible dropdown button -->
+        <button
+            type="button"
+            id="offenseDropdownButton"
+            aria-haspopup="listbox"
+            aria-expanded="false"
+            class="flex w-full items-center justify-between rounded-xl border border-gray-200 bg-gray-50 px-4 py-3.5 text-left text-sm text-gray-800 shadow-sm transition hover:border-green-300 focus:border-[#006B21] focus:bg-white focus:outline-none focus:ring-4 focus:ring-green-100"
+        >
+            <span id="offenseDropdownLabel" class="text-gray-500">
+                Select an offense category
+            </span>
+
+            <svg
+                id="offenseDropdownArrow"
+                xmlns="http://www.w3.org/2000/svg"
+                class="h-4 w-4 shrink-0 text-gray-500 transition-transform duration-200"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                stroke-width="2"
+            >
+                <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    d="m7 10 5 5 5-5"
+                />
+            </svg>
+        </button>
+
+        <!-- Custom options panel -->
+        <div
+            id="offenseDropdownMenu"
+            class="offense-dropdown-menu hidden"
+            role="listbox"
+            aria-label="Offense categories"
+        >
+            <button type="button" class="offense-dropdown-option" data-value="Offenses Against Security" role="option">
+                <span>Offenses Against Security</span>
+                <span class="offense-check hidden">✓</span>
+            </button>
+
+            <button type="button" class="offense-dropdown-option" data-value="Offenses Against Property" role="option">
+                <span>Offenses Against Property</span>
+                <span class="offense-check hidden">✓</span>
+            </button>
+
+            <button type="button" class="offense-dropdown-option" data-value="Offenses Against Order" role="option">
+                <span>Offenses Against Order</span>
+                <span class="offense-check hidden">✓</span>
+            </button>
+
+            <button type="button" class="offense-dropdown-option" data-value="Offenses Involving Dishonesty" role="option">
+                <span>Offenses Involving Dishonesty</span>
+                <span class="offense-check hidden">✓</span>
+            </button>
+
+            <button type="button" class="offense-dropdown-option" data-value="Offenses Against Public Morals" role="option">
+                <span>Offenses Against Public Morals</span>
+                <span class="offense-check hidden">✓</span>
+            </button>
+        </div>
+
+        <!-- Preserve the original field for form submission -->
+        <input
+            type="hidden"
+            id="whatHappened"
+            name="whatHappened"
+            value=""
+            required
+        >
+    </div>
+
+    <p class="mt-2 text-xs leading-5 text-gray-500">
+        Select the category that best matches the reported offense.
+    </p>
+</div>
 
 
                         <div>
