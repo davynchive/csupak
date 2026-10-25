@@ -173,11 +173,14 @@ const fullDetailsModal = document.getElementById("fullDetailsModal");
 const fullDetailsContent = document.getElementById("fullDetailsContent");
 const closeFullDetailsModal = document.getElementById("closeFullDetailsModal");
 let selectedDetailsComplaint = null;
+let detailsViewToken = 0;
 let detailsReturnFocus = null;
 let detailsPreviousBodyOverflow = null;
 let detailsPreviousRootOverflow = null;
 
 function closeFullDetails(restoreFocus = true) {
+    detailsViewToken++;
+    closeComplaintNotes(false, true);
     if (detailsPreviousBodyOverflow !== null) {
         document.body.style.overflow = detailsPreviousBodyOverflow;
         document.documentElement.style.overflow = detailsPreviousRootOverflow;
@@ -231,15 +234,14 @@ function openFullDetails(complaint, trigger) {
         ["Cellphone Number", loadedComplaint.complainant_cellphone],
         ["Date Reported", loadedComplaint.date_reported ? formatDate(loadedComplaint.date_reported) : null],
         ["Received By", loadedComplaint.received_by],
-        ["Complaint Status", loadedComplaint.complaint_status],
-        [loadedComplaint.complaint_status === "On-going" ? "Current On-going Note" : loadedComplaint.complaint_status === "Resolved" ? "Last On-going Note" : "Stored On-going Note",
-            complaintProgressNote(loadedComplaint) || (loadedComplaint.complaint_status === "On-going" ? "No progress note added." : "Not recorded")]
+        ["Complaint Status", loadedComplaint.complaint_status]
     ];
     for (const [label, value] of fields) {
         const detail = detailItem(label, complaintDetailValue(value));
         detail.classList.add("mb-3", "whitespace-pre-wrap", "break-words");
         fullDetailsContent.appendChild(detail);
     }
+    renderFullDetailsProgressNotes(loadedComplaint);
     fullDetailsModal.classList.remove("hidden");
     fullDetailsModal.classList.add("flex");
     detailsPreviousBodyOverflow = document.body.style.overflow;
@@ -254,14 +256,15 @@ fullDetailsModal.addEventListener("click", event => {
     if (event.target === fullDetailsModal) closeFullDetails();
 });
 document.addEventListener("keydown", event => {
-    if (fullDetailsModal.classList.contains("hidden")) return;
+    if (fullDetailsModal.classList.contains("hidden") || complaintNotesModal.open) return;
     if (event.key === "Escape") {
         event.preventDefault();
         closeFullDetails();
     } else if (event.key === "Tab") {
         event.preventDefault();
-        if (document.activeElement === closeFullDetailsModal) fullDetailsContent.focus();
-        else closeFullDetailsModal.focus();
+        const controls = [closeFullDetailsModal, fullDetailsContent, ...fullDetailsContent.querySelectorAll("button:not(:disabled)")];
+        const index = controls.indexOf(document.activeElement);
+        controls[(index + (event.shiftKey ? controls.length - 1 : 1)) % controls.length].focus();
     }
 });
 
@@ -1056,33 +1059,6 @@ function createComplaintCard(
     );
 
 
-    const progressNote = complaintProgressNote(complaint);
-    if (complaint.complaint_status === "On-going" || (complaint.complaint_status === "Resolved" && progressNote)) {
-        const noteBox = document.createElement("div");
-        noteBox.className = "mt-4 rounded-xl bg-gray-50 px-4 py-3";
-        const label = document.createElement("p");
-        label.className = "text-xs font-semibold text-gray-500";
-        label.textContent = complaint.complaint_status === "On-going" ? "Current On-going Note" : "Last On-going Note";
-        const text = document.createElement("p");
-        text.className = "mt-1 whitespace-pre-wrap break-words text-sm text-gray-700";
-        text.style.maxHeight = "4.5rem";
-        text.style.overflow = "auto";
-        text.textContent = progressNote || "No progress note added.";
-        noteBox.appendChild(label);
-        noteBox.appendChild(text);
-        if (complaint.complaint_status === "On-going") {
-            const edit = document.createElement("button");
-            edit.type = "button";
-            edit.className = "mt-2 rounded-lg border px-3 py-2 text-xs font-semibold text-[#006B21]";
-            edit.textContent = progressNote ? "Edit Progress Note" : "Add Progress Note";
-            edit.dataset.noteComplaint = String(complaint.id);
-            edit.disabled = complaintMutations.has(complaintRequestToken + ":" + complaint.id);
-            edit.addEventListener("click", () => openComplaintNotes(complaint, statusSelect, edit));
-            noteBox.appendChild(edit);
-        }
-        card.appendChild(noteBox);
-    }
-
     return card;
 }
 
@@ -1817,6 +1793,39 @@ const complaintNotesSave = document.getElementById("saveComplaintNotes");
 const complaintNotesCancel = document.getElementById("cancelComplaintNotes");
 const complaintNotesClose = document.getElementById("closeComplaintNotes");
 let complaintNotesContext = null;
+function renderFullDetailsProgressNotes(complaint) {
+    let section = document.getElementById("fullDetailsProgressNotes");
+    if (section) section.remove();
+    section = document.createElement("section");
+    section.id = "fullDetailsProgressNotes";
+    section.className = "mt-4 border-t border-gray-100 pt-4";
+    const heading = document.createElement("h4");
+    heading.className = "text-sm font-bold text-[#006B21]";
+    heading.textContent = "Progress Notes";
+    section.appendChild(heading);
+    const note = complaintProgressNote(complaint);
+    const current = complaint.complaint_status === "On-going";
+    const label = document.createElement("p");
+    label.className = "mt-2 text-xs font-semibold text-gray-500";
+    label.textContent = current ? "Current On-going Note" : complaint.complaint_status === "Resolved" ? "Last On-going Note" : "Historical On-going Note";
+    if (note) section.appendChild(label);
+    const text = document.createElement("p");
+    text.className = "mt-1 whitespace-pre-wrap break-words text-sm text-gray-700";
+    text.textContent = note || (current ? "No progress note added." : "Not recorded");
+    section.appendChild(text);
+    if (current) {
+        const edit = document.createElement("button");
+        edit.type = "button";
+        edit.className = "mt-3 rounded-lg border px-3 py-2 text-xs font-semibold text-[#006B21]";
+        edit.textContent = note ? "Edit Progress Note" : "Add Progress Note";
+        edit.dataset.noteComplaint = String(complaint.id);
+        edit.disabled = complaintMutations.has(complaintRequestToken + ":" + complaint.id);
+        edit.addEventListener("click", () => openComplaintNotes(complaint, null, edit));
+        section.appendChild(edit);
+    }
+    fullDetailsContent.appendChild(section);
+}
+
 function complaintProgressNote(complaint) {
     return typeof complaint.ongoing_notes === "string" ? complaint.ongoing_notes.trim() : "";
 }
@@ -1848,6 +1857,11 @@ function closeComplaintNotes(restoreFocus = true, force = false) {
     if (context.trigger) context.trigger.disabled = false;
     if (!restoreFocus || context.session !== complaintRequestToken) return;
     renderComplaints();
+    if (context.detailsToken === detailsViewToken && selectedDetailsComplaint &&
+        String(selectedDetailsComplaint.id) === String(context.id) && !fullDetailsModal.classList.contains("hidden")) {
+        const current = allComplaints.find(complaint => String(complaint.id) === String(context.id));
+        if (current) renderFullDetailsProgressNotes(current);
+    }
     const target = context.trigger?.isConnected ? context.trigger : Array.from(document.querySelectorAll("[data-note-complaint]"))
         .find(element => element.dataset.noteComplaint === String(context.id) && element.tagName === context.trigger?.tagName);
     if (target) target.focus();
@@ -1858,7 +1872,7 @@ function openComplaintNotes(complaint, control, trigger) {
         complaintMutations.has(key) || !allComplaints.includes(complaint) || complaint.complaint_status !== "On-going") return;
     complaintMutations.add(key);
     complaintNotesContext = {key,id:complaint.id,session:complaintRequestToken,previous:complaint.complaint_status,
-        original:complaintProgressNote(complaint),control,trigger,saving:false};
+        original:complaintProgressNote(complaint),control,trigger,saving:false,detailsToken:detailsViewToken};
     if (control) { control.value = complaint.complaint_status || ""; control.disabled = true; }
     if (trigger) trigger.disabled = true;
     complaintNotesInput.value = complaint.complaint_status === "On-going" ? complaintProgressNote(complaint) : "";
