@@ -1265,9 +1265,6 @@
   }
 }
 
-/* =====================================================
-   STATUS NOTIFICATION
-===================================================== */
 
 /* =====================================================
    STATUS NOTIFICATION
@@ -1275,24 +1272,24 @@
 
 #statusNotification {
     position: fixed !important;
-    top: 80px !important;
+    top: 50px !important;
     left: 50% !important;
-
     z-index: 999999 !important;
 
-    padding: 12px 20px;
-    border-radius: 12px;
+    padding: 10px 16px;
+    border-radius: 11px;
 
-    background-color: rgba(100, 171, 122, 0.245);
-    border: 2px solid rgba(99, 218, 137, 0.8);
+    background-color: #f0fdf4;
+    border: 1px solid #008037;
     color: #006B21;
 
     font-size: 14px;
-    font-weight: 600;
+    font-weight: 400;
+    text-align: center;
+    white-space: nowrap;
 
     opacity: 0;
     transform: translate(-50%, -150px);
-
     pointer-events: none;
 }
 
@@ -1301,26 +1298,21 @@
 }
 
 @keyframes notificationSlide {
-
-    /* Start above the page */
     0% {
         opacity: 0;
         transform: translate(-50%, -150px);
     }
 
-    /* Slide down to upper center */
     30% {
         opacity: 1;
         transform: translate(-50%, 0);
     }
 
-    /* Stay there */
     65% {
         opacity: 1;
         transform: translate(-50%, 0);
     }
 
-    /* Slide back up and fade */
     100% {
         opacity: 0;
         transform: translate(-50%, -150px);
