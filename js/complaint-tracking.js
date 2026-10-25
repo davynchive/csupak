@@ -1014,7 +1014,7 @@ function createComplaintCard(
     actions.appendChild(detailsButton);
     const historyButton = document.createElement("button");
     historyButton.type = "button";
-    historyButton.className = "rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-xs font-semibold text-[#006B21] hover:bg-green-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-600";
+    historyButton.className ="rounded-lg border border-green-200 bg-green-50 px-4 py-2.5 text-sm font-semibold text-[#006B21] hover:bg-green-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-600";
     historyButton.textContent = "Status History";
     historyButton.addEventListener("click", () => openComplaintHistory(complaint, historyButton));
     actions.appendChild(historyButton);
@@ -1031,9 +1031,8 @@ function createComplaintCard(
 
 
     callSlipButton.className =
-        "rounded-lg bg-[#F5C400] px-4 py-2.5 text-sm font-bold text-gray-900 hover:bg-yellow-300";
-
-
+    "rounded-lg bg-[#F5C400] px-4 py-2.5 text-sm font-semibold text-gray-900 hover:bg-yellow-300";
+    
     callSlipButton.textContent =
         "Add Call Slip";
 
