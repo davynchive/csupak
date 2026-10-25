@@ -59,7 +59,7 @@
         @media print {
             body > :not(main), main > :not(#trackingContent),
             #trackingContent > :not(#complaintReportSection),
-            #complaintReportControls, #generateComplaintReport, #viewComplaintCollegeBreakdown, #complaintCollegeBreakdownModal { display:none !important; }
+            #complaintReportControls, #generateComplaintReport, #viewComplaintCollegeBreakdown, #complaintCollegeBreakdownModal, #complaintNotesModal { display:none !important; }
             main { margin-left:0 !important; }
             #trackingContent.hidden { display:none !important; }
             #complaintReportSection { color:#111; background:white; }
@@ -67,6 +67,7 @@
             .complaint-report-panel { background:white; box-shadow:none; }
             #complaintReportSection .complaint-panel-title, #complaintReportSection .complaint-panel-eyebrow, #complaintReportSection .complaint-metric-heading, #complaintReportSection .complaint-data-note, #complaintReportState { color:#111; }
         }
+        #complaintNotesModal::backdrop { background:rgb(0 0 0 / 50%); }
     </style>
 </head>
 
@@ -382,6 +383,23 @@
         </div>
 
     </main>
+
+    <dialog id="complaintNotesModal" aria-labelledby="complaintNotesTitle" style="width:calc(100% - 32px);max-width:560px;max-height:90vh;padding:0;border:0;border-radius:16px;margin:auto;">
+        <form id="complaintNotesForm" class="p-5" style="max-height:90vh;overflow:auto;">
+            <div class="mb-3 flex items-center justify-between gap-3">
+                <h3 id="complaintNotesTitle" class="text-lg font-bold text-[#006B21]">On-going Remarks / Notes</h3>
+                <button id="closeComplaintNotes" type="button" class="rounded-lg border px-3 py-2 text-sm">Close</button>
+            </div>
+            <label for="complaintNotesInput" class="mb-2 block text-sm font-semibold">Current action / progress *</label>
+            <textarea id="complaintNotesInput" required maxlength="1000" rows="5" class="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm" placeholder="Explain the current action or progress."></textarea>
+            <p id="complaintNotesCount" class="mt-1 text-right text-xs text-gray-500">0 / 1000</p>
+            <p id="complaintNotesError" role="status" class="mt-2 text-sm text-red-600"></p>
+            <div class="mt-4 flex justify-end gap-3">
+                <button id="cancelComplaintNotes" type="button" class="rounded-lg border px-4 py-2 text-sm">Cancel</button>
+                <button id="saveComplaintNotes" type="submit" class="rounded-lg bg-[#006B21] px-4 py-2 text-sm font-semibold text-white">Save Notes</button>
+            </div>
+        </form>
+    </dialog>
 
     <dialog id="complaintCollegeBreakdownModal" aria-labelledby="complaintCollegeBreakdownTitle">
         <div class="complaint-breakdown-shell">

@@ -231,7 +231,9 @@ function openFullDetails(complaint, trigger) {
         ["Cellphone Number", loadedComplaint.complainant_cellphone],
         ["Date Reported", loadedComplaint.date_reported ? formatDate(loadedComplaint.date_reported) : null],
         ["Received By", loadedComplaint.received_by],
-        ["Complaint Status", loadedComplaint.complaint_status]
+        ["Complaint Status", loadedComplaint.complaint_status],
+        [loadedComplaint.complaint_status === "On-going" ? "Current On-going Note" : loadedComplaint.complaint_status === "Resolved" ? "Last On-going Note" : "Stored On-going Note",
+            complaintProgressNote(loadedComplaint) || (loadedComplaint.complaint_status === "On-going" ? "No progress note added." : "Not recorded")]
     ];
     for (const [label, value] of fields) {
         const detail = detailItem(label, complaintDetailValue(value));
@@ -299,7 +301,7 @@ function renderComplaintHistory(records) {
         showComplaintHistoryMessage("No status history available.");
         return;
     }
-    const labels = { baseline: "Baseline recorded", created: "Record created", status_changed: "Status changed" };
+    const labels = { baseline: "Baseline recorded", created: "Record created", status_changed: "Status changed", notes_updated: "Progress note updated" };
     const displayText = (value, fallback) => typeof value === "string" && value.trim() ? value : fallback;
     for (const record of records) {
         const entry = document.createElement("div");
@@ -323,7 +325,22 @@ function renderComplaintHistory(records) {
         time.textContent = date && Number.isFinite(date.getTime())
             ? date.toLocaleString("en-PH", { timeZone: "Asia/Manila", year: "numeric", month: "short", day: "numeric", hour: "numeric", minute: "2-digit", hour12: true }) : "Date/time unavailable";
         entry.appendChild(event);
-        entry.appendChild(transition);
+        if (record.event_type !== "notes_updated") entry.appendChild(transition);
+        const previousNote = typeof record.previous_ongoing_notes === "string" ? record.previous_ongoing_notes.trim() : "";
+        const newNote = typeof record.new_ongoing_notes === "string" ? record.new_ongoing_notes.trim() : "";
+        if (record.event_type === "notes_updated") {
+            for (const [label, note] of [["Previous note", previousNote], ["New note", newNote]]) {
+                const paragraph = document.createElement("p");
+                paragraph.className = "mt-2 whitespace-pre-wrap break-words text-sm text-gray-700";
+                paragraph.textContent = label + ": " + (note || "Note not recorded");
+                entry.appendChild(paragraph);
+            }
+        } else if (newNote || record.new_status === "On-going" || record.previous_status === "On-going") {
+            const paragraph = document.createElement("p");
+            paragraph.className = "mt-2 whitespace-pre-wrap break-words text-sm text-gray-700";
+            paragraph.textContent = "On-going note: " + (newNote || "Note not recorded");
+            entry.appendChild(paragraph);
+        }
         entry.appendChild(actor);
         entry.appendChild(time);
         complaintHistoryContent.appendChild(entry);
@@ -510,6 +527,7 @@ async function unlockComplaints(event) {
     if (!passkey) return;
     closeComplaintHistory(false);
     closeFullDetails(false);
+    closeComplaintNotes(false, true);
     const token = ++complaintRequestToken;
     resetComplaintReport();
     const isCurrent = () => token === complaintRequestToken;
@@ -594,6 +612,7 @@ async function unlockComplaints(event) {
 
 
 function lockComplaints() {
+    closeComplaintNotes(false, true);
     closeComplaintHistory(false);
     closeFullDetails(false);
     complaintRequestToken++;
@@ -884,6 +903,7 @@ function createComplaintCard(
     );
 
 
+    statusSelect.dataset.noteComplaint = String(complaint.id);
     statusSelect.disabled = complaintMutations.has(complaintRequestToken + ":" + complaint.id);
     statusSelect.addEventListener("change", async function () {
         await updateStatus(complaint.id, statusSelect.value, statusSelect);
@@ -1035,6 +1055,33 @@ function createComplaintCard(
         actions
     );
 
+
+    const progressNote = complaintProgressNote(complaint);
+    if (complaint.complaint_status === "On-going" || (complaint.complaint_status === "Resolved" && progressNote)) {
+        const noteBox = document.createElement("div");
+        noteBox.className = "mt-4 rounded-xl bg-gray-50 px-4 py-3";
+        const label = document.createElement("p");
+        label.className = "text-xs font-semibold text-gray-500";
+        label.textContent = complaint.complaint_status === "On-going" ? "Current On-going Note" : "Last On-going Note";
+        const text = document.createElement("p");
+        text.className = "mt-1 whitespace-pre-wrap break-words text-sm text-gray-700";
+        text.style.maxHeight = "4.5rem";
+        text.style.overflow = "auto";
+        text.textContent = progressNote || "No progress note added.";
+        noteBox.appendChild(label);
+        noteBox.appendChild(text);
+        if (complaint.complaint_status === "On-going") {
+            const edit = document.createElement("button");
+            edit.type = "button";
+            edit.className = "mt-2 rounded-lg border px-3 py-2 text-xs font-semibold text-[#006B21]";
+            edit.textContent = progressNote ? "Edit Progress Note" : "Add Progress Note";
+            edit.dataset.noteComplaint = String(complaint.id);
+            edit.disabled = complaintMutations.has(complaintRequestToken + ":" + complaint.id);
+            edit.addEventListener("click", () => openComplaintNotes(complaint, statusSelect, edit));
+            noteBox.appendChild(edit);
+        }
+        card.appendChild(noteBox);
+    }
 
     return card;
 }
@@ -1760,4 +1807,119 @@ document.getElementById("complaintCollegeBreakdownModal").addEventListener("clic
     const bounds = event.target.getBoundingClientRect();
     if (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom) closeComplaintCollegeBreakdown();
 });
+/* Progress notes are protected complaint data; never persisted in browser storage. */
+const complaintNotesModal = document.getElementById("complaintNotesModal");
+const complaintNotesForm = document.getElementById("complaintNotesForm");
+const complaintNotesInput = document.getElementById("complaintNotesInput");
+const complaintNotesCount = document.getElementById("complaintNotesCount");
+const complaintNotesError = document.getElementById("complaintNotesError");
+const complaintNotesSave = document.getElementById("saveComplaintNotes");
+const complaintNotesCancel = document.getElementById("cancelComplaintNotes");
+const complaintNotesClose = document.getElementById("closeComplaintNotes");
+let complaintNotesContext = null;
+function complaintProgressNote(complaint) {
+    return typeof complaint.ongoing_notes === "string" ? complaint.ongoing_notes.trim() : "";
+}
+function complaintNotesCurrent(context) {
+    return complaintNotesContext === context && context.session === complaintRequestToken &&
+        currentProfile?.role === "oswe_admin" && !!currentPasskey && complaintsComplete && !complaintsLoading &&
+        allComplaints.some(complaint => String(complaint.id) === String(context.id) && complaint.complaint_status === "On-going");
+}
+function setComplaintNotesSaving(saving) {
+    complaintNotesInput.disabled = saving;
+    complaintNotesSave.disabled = saving;
+    complaintNotesCancel.disabled = saving;
+    complaintNotesClose.disabled = saving;
+    complaintNotesSave.textContent = saving ? "Saving..." : "Save Notes";
+}
+function closeComplaintNotes(restoreFocus = true, force = false) {
+    const context = complaintNotesContext;
+    if (context?.saving && !force) return;
+    complaintNotesContext = null;
+    if (complaintNotesModal.open) complaintNotesModal.close();
+    complaintNotesInput.value = "";
+    complaintNotesInput.setCustomValidity("");
+    complaintNotesError.textContent = "";
+    complaintNotesCount.textContent = "0 / 1000";
+    setComplaintNotesSaving(false);
+    if (!context) return;
+    if (!context.saving) complaintMutations.delete(context.key);
+    if (context.control) { context.control.value = context.previous || ""; context.control.disabled = false; }
+    if (context.trigger) context.trigger.disabled = false;
+    if (!restoreFocus || context.session !== complaintRequestToken) return;
+    renderComplaints();
+    const target = context.trigger?.isConnected ? context.trigger : Array.from(document.querySelectorAll("[data-note-complaint]"))
+        .find(element => element.dataset.noteComplaint === String(context.id) && element.tagName === context.trigger?.tagName);
+    if (target) target.focus();
+}
+function openComplaintNotes(complaint, control, trigger) {
+    const key = complaintRequestToken + ":" + complaint.id;
+    if (complaintNotesContext || currentProfile?.role !== "oswe_admin" || !currentPasskey || !complaintsComplete || complaintsLoading ||
+        complaintMutations.has(key) || !allComplaints.includes(complaint) || complaint.complaint_status !== "On-going") return;
+    complaintMutations.add(key);
+    complaintNotesContext = {key,id:complaint.id,session:complaintRequestToken,previous:complaint.complaint_status,
+        original:complaintProgressNote(complaint),control,trigger,saving:false};
+    if (control) { control.value = complaint.complaint_status || ""; control.disabled = true; }
+    if (trigger) trigger.disabled = true;
+    complaintNotesInput.value = complaint.complaint_status === "On-going" ? complaintProgressNote(complaint) : "";
+    complaintNotesCount.textContent = complaintNotesInput.value.length + " / 1000";
+    complaintNotesInput.setCustomValidity("");
+    complaintNotesError.textContent = "";
+    setComplaintNotesSaving(false);
+    complaintNotesModal.showModal();
+    complaintNotesInput.focus();
+}
+async function saveComplaintNotes(event) {
+    event.preventDefault();
+    const context = complaintNotesContext;
+    if (!context || context.saving || !complaintNotesCurrent(context)) return;
+    const note = complaintNotesInput.value.trim();
+    if (!note || note.length > 1000 || complaintNotesInput.value.length > 1000) {
+        complaintNotesError.textContent = "Enter Remarks / Notes between 1 and 1000 characters.";
+        complaintNotesInput.focus();
+        return;
+    }
+    if (context.previous === "On-going" && context.original === note) { closeComplaintNotes(); return; }
+    context.saving = true;
+    setComplaintNotesSaving(true);
+    complaintNotesError.textContent = "";
+    try {
+        const result = await supabaseClient.rpc("update_complaint_status_with_passkey", {
+            entered_passkey:currentPasskey,complaint_id:context.id,new_status:"On-going",p_ongoing_notes:note
+        });
+        if (result.error || result.data !== true) throw new Error("Update not confirmed.");
+        if (!complaintNotesCurrent(context)) return;
+        const current = allComplaints.find(complaint => String(complaint.id) === String(context.id));
+        if (!current) throw new Error("Complaint unavailable.");
+        current.complaint_status = "On-going";
+        current.ongoing_notes = note;
+        context.previous = "On-going";
+        context.saving = false;
+        closeComplaintNotes();
+        renderComplaintReport();
+        showStatusNotification();
+    } catch (_) {
+        if (complaintNotesCurrent(context)) {
+            complaintNotesError.textContent = "The change could not be confirmed. Lock and unlock to verify before trying again.";
+            if (context.control) context.control.value = context.previous || "";
+        }
+    } finally {
+        context.saving = false;
+        if (complaintNotesContext === context) setComplaintNotesSaving(false);
+        else complaintMutations.delete(context.key);
+    }
+}
+complaintNotesForm.addEventListener("submit", saveComplaintNotes);
+complaintNotesInput.addEventListener("input", () => {
+    complaintNotesCount.textContent = complaintNotesInput.value.length + " / 1000";
+    complaintNotesInput.setCustomValidity(complaintNotesInput.value && !complaintNotesInput.value.trim() ? "Please enter Remarks / Notes." : "");
+});
+for (const button of [complaintNotesCancel, complaintNotesClose]) button.addEventListener("click", () => closeComplaintNotes());
+complaintNotesModal.addEventListener("cancel", event => { event.preventDefault(); closeComplaintNotes(); });
+complaintNotesModal.addEventListener("click", event => {
+    if (event.target !== complaintNotesModal) return;
+    const bounds = complaintNotesModal.getBoundingClientRect();
+    if (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom) closeComplaintNotes();
+});
+
 initialize();
