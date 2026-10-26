@@ -650,6 +650,26 @@
         </div>
     </div>
 
+
+    <dialog id="interviewCallModal" aria-labelledby="interviewCallTitle" style="width:calc(100% - 32px);max-width:576px;max-height:90vh;padding:0;border:0;border-radius:16px;margin:auto;">
+        <form id="interviewCallForm" class="p-6" style="overflow:auto;max-height:85vh;">
+            <h3 id="interviewCallTitle" class="mb-4 text-lg font-bold text-[#006B21]">Add Call Slip</h3>
+            <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div><label for="callStudentName" class="mb-2 block text-sm font-semibold">Student Name</label><input id="callStudentName" name="callStudentName" type="text"  class="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm"></div>
+<div><label for="callCourseYear" class="mb-2 block text-sm font-semibold">Course / Year</label><input id="callCourseYear" name="callCourseYear" type="text"  class="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm"></div>
+<div><label for="callDate" class="mb-2 block text-sm font-semibold">Date</label><input id="callDate" name="callDate" type="date" required class="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm"></div>
+<div><label for="callScheduledDate" class="mb-2 block text-sm font-semibold">Scheduled Date</label><input id="callScheduledDate" name="callScheduledDate" type="date"  class="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm"></div>
+<div><label for="callScheduledTime" class="mb-2 block text-sm font-semibold">Scheduled Time</label><input id="callScheduledTime" name="callScheduledTime" type="time"  class="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm"></div>
+                <div><label for="interviewCallNumber" class="mb-2 block text-sm font-semibold">Call Number</label><select id="interviewCallNumber" required class="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm"><option value="1">1st Call</option><option value="2">2nd Call</option><option value="3">3rd Call</option></select></div>
+                <div><label for="callScheduleType" class="mb-2 block text-sm font-semibold">Schedule</label><select id="callScheduleType" class="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm"><option>At Once</option><option>After Class Period</option><option>During Vacant Time</option><option>Specific Date / Time</option></select></div>
+                <div><label for="callRemarks" class="mb-2 block text-sm font-semibold">Remarks</label><input id="callRemarks" type="text" class="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm"></div>
+            </div>
+            <p id="interviewCallMessage" role="status" aria-live="polite" class="mt-3 text-sm text-gray-600"></p>
+            <div class="mt-6 flex justify-end gap-3"><button id="cancelInterviewCall" type="button" class="rounded-xl border border-gray-300 px-5 py-2.5 text-sm">Cancel</button><button type="submit" class="rounded-xl bg-[#006B21] px-5 py-2.5 text-sm font-bold text-white">Save Call Slip</button></div>
+        </form>
+    </dialog>
+    <p id="interviewCallNotification" role="status" aria-live="polite" class="hidden fixed bottom-6 right-6 rounded-xl bg-white p-5 text-sm font-bold text-[#006B21] shadow-xl"></p>
+
     <!-- =====================================================
          SCRIPTS
     ====================================================== -->

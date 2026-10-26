@@ -185,6 +185,7 @@ function showStatusNotification() {
 let currentProfile = null;
 
 let allCallSlips = [];
+let complaintGroups = new Map();
 const CALL_SLIP_BATCH_SIZE = 500;
 const CALL_SLIP_GROUP_PAGE_SIZE = 10;
 let currentCallSlipPage = 1;
@@ -531,6 +532,119 @@ async function loadProfile() {
 }
 
 
+const interviewCallModal = document.getElementById("interviewCallModal");
+const interviewCallForm = document.getElementById("interviewCallForm");
+const interviewCallNumber = document.getElementById("interviewCallNumber");
+const interviewCallMessage = document.getElementById("interviewCallMessage");
+let interviewSaving = false;
+let interviewModalToken = 0;
+let interviewComplaintId = null;
+let interviewReturnFocus = null;
+let interviewNotificationTimer;
+
+function interviewAuthorized() {
+    return currentProfile && ["oswe_admin", "oswe_staff"].includes(currentProfile.role);
+}
+
+function applyInterviewNumbers(group) {
+    for (const option of interviewCallNumber.options) option.disabled = group.calls.some(call => Number(call.call_number) === Number(option.value));
+    const next = nextInterviewCall(group);
+    interviewCallNumber.value = next ? String(next) : "";
+    interviewCallForm.querySelector('[type="submit"]').disabled = !next;
+    return next;
+}
+
+function openInterviewCall(id, trigger) {
+    if (interviewSaving || !interviewAuthorized() || callSlipsLoading || !callSlipsComplete) return;
+    const group = complaintGroups.get(id);
+    if (!group || !nextInterviewCall(group)) return;
+    interviewModalToken++;
+    interviewComplaintId = id;
+    interviewReturnFocus = trigger;
+    interviewCallForm.reset();
+    document.getElementById("interviewCallTitle").textContent = "Add Call Slip ? Complaint #" + id;
+    document.getElementById("callStudentName").value = group.calls[0]?.student_name || "";
+    document.getElementById("callCourseYear").value = group.calls[0]?.course_year || "";
+    document.getElementById("callDate").value = new Intl.DateTimeFormat("en-CA", {timeZone:"Asia/Manila",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date());
+    applyInterviewNumbers(group);
+    interviewCallMessage.textContent = "";
+    interviewCallModal.showModal();
+}
+
+function closeInterviewCall() {
+    if (interviewSaving) return;
+    interviewModalToken++;
+    interviewComplaintId = null;
+    interviewCallModal.close();
+    if (interviewReturnFocus?.isConnected) interviewReturnFocus.focus();
+    interviewReturnFocus = null;
+}
+
+document.getElementById("cancelInterviewCall").addEventListener("click", closeInterviewCall);
+interviewCallModal.addEventListener("cancel", event => { event.preventDefault(); closeInterviewCall(); });
+
+interviewCallForm.addEventListener("submit", async event => {
+    event.preventDefault();
+    if (interviewSaving || !interviewAuthorized() || callSlipsLoading || !callSlipsComplete || !interviewCallForm.reportValidity()) return;
+    const complaintId = interviewComplaintId, token = interviewModalToken;
+    const isCurrent = () => token === interviewModalToken && interviewComplaintId === complaintId && interviewCallModal.open;
+    const group = complaintGroups.get(complaintId);
+    const number = Number(interviewCallNumber.value);
+    if (!group || ![1,2,3].includes(number)) return;
+    if (group.calls.some(call => Number(call.call_number) === number)) {
+        const next = applyInterviewNumbers(group);
+        interviewCallMessage.textContent = "A " + getCallNumberLabel(number) + " is already recorded for this complaint." + (next ? " Please use " + getCallNumberLabel(next) + "." : " All calls recorded.");
+        return;
+    }
+    const value = id => document.getElementById(id).value.trim() || null;
+    const payload = {complaint_id:complaintId, call_number:number, student_name:value("callStudentName"), course_year:value("callCourseYear"), date:value("callDate"), schedule_type:value("callScheduleType"), scheduled_date:value("callScheduledDate"), scheduled_time:value("callScheduledTime"), remarks:value("callRemarks"), received_by:currentProfile.full_name, interview_status:null};
+    const controls = Array.from(interviewCallForm.querySelectorAll("input, select, button"));
+    const states = controls.map(control => control.disabled);
+    const save = interviewCallForm.querySelector('[type="submit"]');
+    const label = save.textContent;
+    interviewSaving = true;
+    controls.forEach(control => { control.disabled = true; });
+    save.textContent = "Saving...";
+    interviewCallMessage.textContent = "";
+    let confirmed = false;
+    try {
+        const result = await supabaseClient.from("call_slips").insert(payload).select("id, complaint_id, call_number").single();
+        if (result.error) throw result.error;
+        if (!result.data || interviewId(result.data.complaint_id) !== complaintId || Number(result.data.call_number) !== number) throw new Error("Insert not confirmed.");
+        interviewId(result.data.id);
+        confirmed = true;
+        await loadCallSlips();
+        if (isCurrent()) {
+            const notification = document.getElementById("interviewCallNotification");
+            notification.textContent = callSlipsComplete ? "Call Slip added successfully." : "Call Slip saved, but the view could not be refreshed. Use Refresh to reload the records.";
+            notification.classList.remove("hidden");
+            clearTimeout(interviewNotificationTimer);
+            interviewNotificationTimer = setTimeout(() => notification.classList.add("hidden"), 6000);
+        }
+    } catch (error) {
+        // Never retry a write: a lost response may still mean the insert succeeded.
+        await loadCallSlips();
+        if (isCurrent()) {
+            const fresh = callSlipsComplete ? complaintGroups.get(complaintId) : null;
+            const next = fresh ? applyInterviewNumbers(fresh) : undefined;
+            interviewCallMessage.textContent = error?.code === "23505"
+                ? "A " + getCallNumberLabel(number) + " is already recorded for this complaint." + (next ? " Please use " + getCallNumberLabel(next) + "." : fresh ? " All calls recorded." : " Refresh to check the next available call.")
+                : "Call Slip save could not be confirmed. Verify the existing calls before submitting again.";
+        }
+    } finally {
+        interviewSaving = false;
+        controls.forEach((control,index) => { control.disabled = states[index]; });
+        save.textContent = label;
+        if (isCurrent()) {
+            const fresh = callSlipsComplete ? complaintGroups.get(complaintId) : null;
+            if (fresh) applyInterviewNumbers(fresh);
+            else save.disabled = true;
+            if (confirmed) closeInterviewCall();
+        }
+        if (callSlipsComplete) renderCallSlips();
+    }
+});
+
 /* =====================================================
    LOAD CALL SLIPS
 ===================================================== */
@@ -541,6 +655,7 @@ async function loadCallSlips() {
     callSlipsComplete = false;
     callSlipsLoadError = null;
     allCallSlips = [];
+    complaintGroups = new Map();
     currentCallSlipPage = 1;
     refreshButton.disabled = true;
     renderCallSlips();
@@ -549,6 +664,7 @@ async function loadCallSlips() {
     let expectedTotal = null;
     let offset = 0;
     try {
+        const summaries = await loadInterviewSummaries();
         do {
             const result = await supabaseClient
                 .from("call_slips")
@@ -583,13 +699,15 @@ async function loadCallSlips() {
         if (records.length !== expectedTotal || ids.size !== expectedTotal) {
             throw new Error("Incomplete call-slip dataset returned.");
         }
+        const groups = buildInterviewGroups(summaries, records);
+        complaintGroups = groups;
         allCallSlips = records;
         callSlipsComplete = true;
     } catch (error) {
         console.error("Unable to load complete Call Slips:", error);
         allCallSlips = [];
         callSlipsComplete = false;
-        callSlipsLoadError = "Unable to load complete Call Slip records. Use Refresh to try again.";
+        callSlipsLoadError = "Unable to load complete Interview Tracking records. Use Refresh to try again.";
     } finally {
         callSlipsLoading = false;
         refreshButton.disabled = false;
@@ -783,41 +901,59 @@ function getFilteredCallSlips() {
    GROUP BY COMPLAINT
 ===================================================== */
 
-function groupByComplaint(
-    records
-) {
+function interviewId(value) {
+    if (typeof value === "number" && (!Number.isSafeInteger(value) || value <= 0)) throw new Error("Unsafe record ID.");
+    if (!["string", "number"].includes(typeof value) || !/^[1-9]\d*$/.test(String(value))) throw new Error("Invalid record ID.");
+    return String(value);
+}
 
-    const groups = {};
-
-
-    records.forEach(
-        function (item) {
-
-            const complaintId =
-                String(
-                    item.complaint_id
-                );
-
-
-            if (!groups[complaintId]) {
-
-                groups[complaintId] =
-                    [];
-            }
-
-
-            groups[
-                complaintId
-            ].push(
-                item
-            );
+async function loadInterviewSummaries() {
+    const rows = [], ids = new Set();
+    let total = null, offset = 0;
+    do {
+        const result = await supabaseClient.rpc("get_interview_complaint_summaries", {}, {count: "exact"})
+            .order("complaint_id", {ascending: false}).range(offset, offset + CALL_SLIP_BATCH_SIZE - 1);
+        if (result.error) throw result.error;
+        if (!Array.isArray(result.data) || !Number.isSafeInteger(result.count) || result.count < 0 || result.data.length > CALL_SLIP_BATCH_SIZE) throw new Error("Invalid summary batch.");
+        if (total === null) total = result.count;
+        if (total !== result.count) throw new Error("Summary count changed.");
+        if (!result.data.length && offset < total) throw new Error("Premature empty summary batch.");
+        for (const row of result.data) {
+            if (!row || typeof row.complaint_id !== "string") throw new Error("Invalid summary.");
+            const id = interviewId(row.complaint_id);
+            if (ids.has(id)) throw new Error("Duplicate summary.");
+            ids.add(id); rows.push({complaintId: id});
         }
-    );
+        offset += result.data.length;
+    } while (offset < total);
+    if (rows.length !== total || ids.size !== total) throw new Error("Incomplete summaries.");
+    return rows;
+}
 
-
+function buildInterviewGroups(summaries, calls) {
+    const groups = new Map(summaries.map(row => [row.complaintId, {complaintId: row.complaintId, calls: []}]));
+    const ids = new Set();
+    for (const call of calls) {
+        const id = interviewId(call.id), group = groups.get(interviewId(call.complaint_id));
+        const number = Number(call.call_number);
+        if (ids.has(id) || !group || ![1, 2, 3].includes(number) || group.calls.some(row => Number(row.call_number) === number)) throw new Error("Invalid call association or duplicate call number.");
+        ids.add(id); group.calls.push(call);
+    }
+    for (const group of groups.values()) group.calls.sort((a,b) => Number(a.call_number) - Number(b.call_number));
     return groups;
 }
 
+function nextInterviewCall(group) {
+    return [1, 2, 3].find(number => !group.calls.some(call => Number(call.call_number) === number));
+}
+
+function filteredInterviewGroups(records) {
+    const ids = new Set(records.map(call => String(call.id)));
+    const search = searchInput.value.trim().toLowerCase();
+    return Array.from(complaintGroups.values()).map(group => ({...group, calls: group.calls.filter(call => ids.has(String(call.id)))}))
+        .filter(group => group.calls.length || (!complaintGroups.get(group.complaintId).calls.length && !statusFilter.value && !callNumberFilter.value && (!search || group.complaintId.includes(search))))
+        .sort((a,b) => a.complaintId.length === b.complaintId.length ? (a.complaintId < b.complaintId ? 1 : a.complaintId > b.complaintId ? -1 : 0) : b.complaintId.length - a.complaintId.length);
+}
 
 /* =====================================================
    RENDER CALL SLIPS
@@ -848,15 +984,14 @@ function renderCallSlips() {
         "";
 
 
-    if (
-        records.length === 0
-    ) {
+    const visibleGroups = filteredInterviewGroups(records);
+    if (!visibleGroups.length) {
         currentCallSlipPage = 1;
 
         callSlipRecords.innerHTML =
             "<div class=\"rounded-xl bg-gray-50 px-4 py-10 text-center\">" +
                 "<p class=\"text-sm text-gray-500\">" +
-                    "No Call Slip records found." +
+                    "No complaints match the current filters." +
                 "</p>" +
             "</div>";
 
@@ -865,25 +1000,8 @@ function renderCallSlips() {
     }
 
 
-    const groups =
-        groupByComplaint(
-            records
-        );
-
-
-    const complaintIds =
-        Object.keys(
-            groups
-        ).sort(
-            function (a, b) {
-
-                return (
-                    Number(b) -
-                    Number(a)
-                );
-            }
-        );
-
+    const groups = Object.fromEntries(visibleGroups.map(group => [group.complaintId, group.calls]));
+    const complaintIds = visibleGroups.map(group => group.complaintId);
 
     const wrapper =
         document.createElement(
@@ -1021,7 +1139,7 @@ function createComplaintGroup(
 
 
     const firstCall =
-        calls[0];
+        complaintGroups.get(complaintId).calls[0] || {};
 
 
     student.textContent =
@@ -1058,9 +1176,9 @@ function createComplaintGroup(
 
 
     count.textContent =
-        calls.length +
+        complaintGroups.get(complaintId).calls.length +
         (
-            calls.length === 1
+            complaintGroups.get(complaintId).calls.length === 1
                 ? " Call"
                 : " Calls"
         );
@@ -1117,6 +1235,30 @@ function createComplaintGroup(
         }
     );
 
+
+    const canonical = complaintGroups.get(complaintId);
+    if (!canonical.calls.length) {
+        const empty = document.createElement("p");
+        empty.className = "p-5 text-sm text-gray-500";
+        empty.textContent = "No calls yet";
+        callContainer.appendChild(empty);
+    }
+    const actions = document.createElement("div");
+    actions.className = "p-5";
+    const next = nextInterviewCall(canonical);
+    if (next) {
+        const add = document.createElement("button");
+        add.type = "button";
+        add.className = "rounded-lg bg-[#F5C400] px-4 py-2.5 text-sm font-semibold text-gray-900";
+        add.textContent = "Add " + getCallNumberLabel(next);
+        add.disabled = interviewSaving;
+        add.addEventListener("click", () => openInterviewCall(complaintId, add));
+        actions.appendChild(add);
+    } else {
+        actions.className += " text-sm text-gray-500";
+        actions.textContent = "All calls recorded.";
+    }
+    callContainer.appendChild(actions);
 
     group.appendChild(
         callContainer
