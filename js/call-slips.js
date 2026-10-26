@@ -563,8 +563,9 @@ function openInterviewCall(id, trigger) {
     interviewReturnFocus = trigger;
     interviewCallForm.reset();
     document.getElementById("interviewCallTitle").textContent = "Add Call Slip ? Complaint #" + id;
-    document.getElementById("callStudentName").value = group.calls[0]?.student_name || "";
-    document.getElementById("callCourseYear").value = group.calls[0]?.course_year || "";
+    const person = interviewGroupPerson(group);
+    document.getElementById("callStudentName").value = person.name;
+    document.getElementById("callCourseYear").value = person.courseYear;
     document.getElementById("callDate").value = new Intl.DateTimeFormat("en-CA", {timeZone:"Asia/Manila",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date());
     applyInterviewNumbers(group);
     interviewCallMessage.textContent = "";
@@ -922,7 +923,8 @@ async function loadInterviewSummaries() {
             if (!row || typeof row.complaint_id !== "string") throw new Error("Invalid summary.");
             const id = interviewId(row.complaint_id);
             if (ids.has(id)) throw new Error("Duplicate summary.");
-            ids.add(id); rows.push({complaintId: id});
+            if (row.involved_name != null && typeof row.involved_name !== "string") throw new Error("Invalid involved name.");
+            ids.add(id); rows.push({complaintId: id, involvedName: row.involved_name?.trim() || ""});
         }
         offset += result.data.length;
     } while (offset < total);
@@ -931,7 +933,7 @@ async function loadInterviewSummaries() {
 }
 
 function buildInterviewGroups(summaries, calls) {
-    const groups = new Map(summaries.map(row => [row.complaintId, {complaintId: row.complaintId, calls: []}]));
+    const groups = new Map(summaries.map(row => [row.complaintId, {complaintId: row.complaintId, involvedName: row.involvedName, calls: []}]));
     const ids = new Set();
     for (const call of calls) {
         const id = interviewId(call.id), group = groups.get(interviewId(call.complaint_id));
@@ -941,6 +943,16 @@ function buildInterviewGroups(summaries, calls) {
     }
     for (const group of groups.values()) group.calls.sort((a,b) => Number(a.call_number) - Number(b.call_number));
     return groups;
+}
+
+function interviewGroupPerson(group) {
+    const namedCall = group.calls.slice().sort((a, b) => Number(a.call_number) - Number(b.call_number))
+        .find(call => typeof call.student_name === "string" && call.student_name.trim());
+    if (namedCall) return {
+        name: namedCall.student_name.trim(),
+        courseYear: typeof namedCall.course_year === "string" ? namedCall.course_year.trim() : ""
+    };
+    return {name: group.involvedName || "", courseYear: ""};
 }
 
 function nextInterviewCall(group) {
@@ -1138,21 +1150,9 @@ function createComplaintGroup(
         "mt-1 text-xs text-gray-500";
 
 
-    const firstCall =
-        complaintGroups.get(complaintId).calls[0] || {};
-
-
-    student.textContent =
-        (
-            firstCall.student_name ||
-            "Student not specified"
-        ) +
-        (
-            firstCall.course_year
-                ? " • " +
-                  firstCall.course_year
-                : ""
-        );
+    const person = interviewGroupPerson(complaintGroups.get(complaintId));
+    student.textContent = (person.name || "Student/person not specified") +
+        (person.courseYear ? " ? " + person.courseYear : "");
 
 
     left.appendChild(
