@@ -1,3 +1,16 @@
+let complaintInitReady = false;
+let complaintInitReason = "Loading account information and courses...";
+let complaintCoursesReady = false;
+let complaintCourseIds = new Set();
+let complaintCourseCodes = new Map();
+const APPROVED_COMPLAINT_CATEGORIES = [
+    "Offenses Against Security",
+    "Offenses Against Property",
+    "Offenses Against Order",
+    "Offenses Involving Dishonesty",
+    "Offenses Against Public Morals"
+];
+const COMPLAINANT_YEAR_LEVELS = ["1st Year", "2nd Year", "3rd Year", "4th Year", "5th Year", "6th Year"];
 /* =====================================================
    CSUPAK - ADD COMPLAINT
 ===================================================== */
@@ -48,6 +61,61 @@ const whatHappened =
         "whatHappened"
     );
 
+/* =====================================================
+   CUSTOM OFFENSE CATEGORY DROPDOWN
+===================================================== */
+
+const offenseDropdown = document.getElementById("offenseDropdown");
+const offenseButton = document.getElementById("offenseDropdownButton");
+const offenseLabel = document.getElementById("offenseDropdownLabel");
+const offenseMenu = document.getElementById("offenseDropdownMenu");
+const offenseArrow = document.getElementById("offenseDropdownArrow");
+const offenseOptions = document.querySelectorAll(".offense-dropdown-option");
+
+function toggleOffenseDropdown(show) {
+    if (!offenseMenu || !offenseButton || !offenseArrow) return;
+
+    offenseMenu.classList.toggle("hidden", !show);
+    offenseButton.setAttribute("aria-expanded", String(show));
+    offenseArrow.classList.toggle("rotated", show);
+}
+
+if (offenseButton && offenseMenu && whatHappened) {
+    offenseButton.addEventListener("click", () => {
+        toggleOffenseDropdown(offenseMenu.classList.contains("hidden"));
+    });
+
+    offenseOptions.forEach((option) => {
+        option.addEventListener("click", () => {
+            const value = option.dataset.value;
+
+            if (!APPROVED_COMPLAINT_CATEGORIES.includes(value)) return;
+
+            whatHappened.value = value;
+            offenseLabel.textContent = value;
+            offenseLabel.classList.remove("text-gray-500");
+
+            offenseOptions.forEach((item) => {
+                const selected = item === option;
+
+                item.classList.toggle("selected", selected);
+                item.setAttribute("aria-selected", String(selected));
+
+                const check = item.querySelector(".offense-check");
+                if (check) check.classList.toggle("hidden", !selected);
+            });
+
+            toggleOffenseDropdown(false);
+        });
+    });
+
+    document.addEventListener("click", (event) => {
+        if (offenseDropdown && !offenseDropdown.contains(event.target)) {
+            toggleOffenseDropdown(false);
+        }
+    });
+}
+
 const whoInvolved =
     document.getElementById(
         "whoInvolved"
@@ -83,10 +151,9 @@ const complainantStudentId =
         "complainantStudentId"
     );
 
-const complainantCourse =
-    document.getElementById(
-        "complainantCourse"
-    );
+const complainantCourseId = document.getElementById("complainantCourseId");
+
+const complainantYearLevel = document.getElementById("complainantYearLevel");
 
 const complainantCellphone =
     document.getElementById(
@@ -196,6 +263,82 @@ const callRemarks =
 let currentProfile = null;
 let savedComplaintId = null;
 let isSavingComplaint = false;
+let lastCallSlipIssue = "";
+
+// Availability is advisory; the database UNIQUE constraint is authoritative.
+const callNumberAvailability = new Map();
+let callAvailabilityToken = 0;
+let callAvailabilityMessage = null;
+function validCallNumber(value) { return ["1", "2", "3"].includes(String(value)) && value !== ""; }
+function callAvailabilityState(complaintId) { return callNumberAvailability.get(String(complaintId)); }
+function callAvailabilityNote(text) {
+    if (!callAvailabilityMessage) {
+        callAvailabilityMessage = document.createElement("p");
+        callAvailabilityMessage.className = "mt-2 text-xs text-gray-500";
+        callAvailabilityMessage.setAttribute("role", "status");
+        callNumber.insertAdjacentElement("afterend", callAvailabilityMessage);
+    }
+    callAvailabilityMessage.textContent = text;
+    callAvailabilityMessage.hidden = !text;
+}
+function applyCallAvailability(complaintId) {
+    const state = complaintId == null ? null : callAvailabilityState(complaintId);
+    const used = state?.used || new Set();
+    for (const option of callNumber.options) {
+        if (validCallNumber(option.value)) option.disabled = used.has(Number(option.value));
+    }
+    if (state?.ready && used.has(Number(callNumber.value))) callNumber.selectedIndex = -1;
+    const allUsed = state?.ready && used.size === 3;
+    callAvailabilityNote(state?.loading ? "Checking available call numbers..." : state?.error ?
+        "Call availability could not be checked. Try saving again to recheck before any insert." : allUsed ?
+        "All three call numbers are already recorded for this complaint." : used.size ?
+        "Already recorded: " + Array.from(used).sort().join(", ") + ". Please choose another available call." : "");
+    return {blocked: !!state && (!state.ready || state.loading || allUsed), allUsed};
+}
+async function readUsedCallNumbers(complaintId) {
+    const result = await supabaseClient.from("call_slips")
+        .select("call_number", {count:"exact"}).eq("complaint_id", complaintId)
+        .order("call_number", {ascending:true}).range(0, 3);
+    if (result.error) throw result.error;
+    if (!Array.isArray(result.data) || !Number.isSafeInteger(result.count) || result.count < 0 || result.count > 3 ||
+        result.data.length !== result.count) throw new Error("Incomplete call availability.");
+    const used = new Set();
+    for (const row of result.data) {
+        if (!row || !validCallNumber(row.call_number) || used.has(Number(row.call_number))) throw new Error("Invalid call availability.");
+        used.add(Number(row.call_number));
+    }
+    return used;
+}
+function callConflictMessage(number, used, uncertain = false) {
+    if (used?.size === 3) return uncertain ? "The save could not be confirmed, and all three call numbers are now recorded. Verify the existing calls in Interview Tracking." : "All three call numbers are already recorded for this complaint. Please use the existing calls.";
+    if (used?.has(number)) return uncertain ?
+        "The save could not be confirmed, but this call number is now recorded. Verify it in Interview Tracking before creating another call. It will not be inserted again." :
+        "This call number already exists for this complaint. Please choose another available call.";
+    return "Call Slip save could not be confirmed. Verify whether it was saved before submitting again.";
+}
+function confirmedCallSlip(row, complaintId, number) {
+    return row && ((typeof row.id === "number" && Number.isSafeInteger(row.id) && row.id > 0) ||
+        (typeof row.id === "string" && /^[1-9]\d*$/.test(row.id))) &&
+        String(row.complaint_id) === String(complaintId) && validCallNumber(row.call_number) && Number(row.call_number) === number;
+}
+
+async function refreshComplaintCallAvailability(complaintId) {
+    const token = ++callAvailabilityToken;
+    const key = String(complaintId);
+    const isCurrent = () => token === callAvailabilityToken && String(savedComplaintId) === key;
+    callNumberAvailability.set(key, {used:new Set(),ready:false,loading:true});
+    updateComplaintFormState();
+    try {
+        const used = await readUsedCallNumbers(complaintId);
+        if (!isCurrent()) return null;
+        callNumberAvailability.set(key, {used,ready:true,loading:false});
+        return used;
+    } catch (_) {
+        if (isCurrent()) callNumberAvailability.set(key, {used:new Set(),ready:false,loading:false,error:true});
+        return null;
+    } finally { if (isCurrent()) updateComplaintFormState(); }
+}
+
 
 function validateCallSlipFields() {
     const validDate = value => {
@@ -228,7 +371,7 @@ function validateCallSlipFields() {
 function updateComplaintFormState() {
     const retry = savedComplaintId !== null;
     [whatHappened, whoInvolved, incidentDatetime, locationInput, howHappened,
-        otherDetails, complainantName, complainantStudentId, complainantCourse,
+        otherDetails, complainantName, complainantStudentId, complainantYearLevel, complainantCourseId,
         complainantCellphone, complainantResidenceTel, complainantAddress, dateReported]
         .forEach(field => { field.disabled = isSavingComplaint || retry; });
     [callStudentName, callCourseYear, callDate, callNumber, scheduleType,
@@ -238,23 +381,33 @@ function updateComplaintFormState() {
         if (retry) addCallSlipCheckbox.checked = true;
     }
     if (callSlipFields) callSlipFields.classList.toggle("hidden", !(retry || (addCallSlipCheckbox && addCallSlipCheckbox.checked)));
-    submitComplaintButton.disabled = isSavingComplaint;
+    complainantCourseId.disabled = isSavingComplaint || retry || !complaintCoursesReady;
+    submitComplaintButton.disabled = isSavingComplaint || (!complaintInitReady && !retry);
     submitComplaintButton.textContent = isSavingComplaint
         ? (retry ? "Saving Call Slip..." : "Saving...") : (retry ? "Retry Call Slip" : "Save Complaint");
+    const availability = applyCallAvailability(savedComplaintId);
+    callNumber.disabled = isSavingComplaint || availability.blocked;
+    if (retry && availability.allUsed) submitComplaintButton.disabled = true;
     clearFormButton.disabled = isSavingComplaint;
     clearFormButton.textContent = retry ? "Start New Complaint" : "Clear";
 }
 
 function resetComplaintForm() {
+    callAvailabilityToken++;
+    callNumberAvailability.clear();
+    lastCallSlipIssue = "";
     savedComplaintId = null;
     complaintForm.reset();
+    for (const [field] of requiredComplaintFields()) field.setCustomValidity("");
+    if (complaintCoursesReady) complainantCourseId.value = "";
+    complainantYearLevel.value = "";
     if (receivedBy) receivedBy.value = currentProfile ? currentProfile.full_name : "";
     setToday();
     updateComplaintFormState();
 }
 
 function showCallSlipRetryMessage() {
-    showMessage("Complaint #" + savedComplaintId + " was saved, but the Call Slip could not be created. Retry Call Slip will use this existing complaint.", false);
+    showMessage("Complaint #" + savedComplaintId + " is already saved. " + (lastCallSlipIssue || "The Call Slip could not be created. Retry Call Slip will use this existing complaint."), false);
 }
 
 
@@ -349,16 +502,7 @@ async function loadProfile() {
             .getUser();
 
 
-    if (
-        userResult.error ||
-        !userResult.data.user
-    ) {
-
-        window.location.href =
-            "../index.html";
-
-        return false;
-    }
+    requireUserResult(userResult);
 
 
     const profileResult =
@@ -374,15 +518,7 @@ async function loadProfile() {
             .single();
 
 
-    if (profileResult.error) {
-
-        console.error(
-            "Unable to load profile:",
-            profileResult.error
-        );
-
-        return false;
-    }
+    if (profileResult.error) throw profileResult.error;
 
 
     currentProfile =
@@ -627,41 +763,12 @@ function hideMessage() {
    CREATE CALL SLIP
 ===================================================== */
 
-async function createCallSlip(
-    complaintId
-) {
-
-    /*
-        Both OSWE Admin and OSWE Staff
-        are allowed to create Call Slips.
-    */
-
-    if (
-        currentProfile.role !==
-            "oswe_admin" &&
-        currentProfile.role !==
-            "oswe_staff"
-    ) {
-
-        return false;
-    }
-
-
-    if (!callDate.value) {
-
-        showMessage(
-            "Please enter the Call Slip date.",
-            false
-        );
-
-        return false;
-    }
-
-
-    const result =
-        await supabaseClient
-            .from("call_slips")
-            .insert({
+async function createCallSlip(complaintId) {
+    lastCallSlipIssue = "";
+    if (!currentProfile || !["oswe_admin", "oswe_staff"].includes(currentProfile.role)) return false;
+    if (!validCallNumber(callNumber.value)) { lastCallSlipIssue = "Please select Call Number 1, 2, or 3."; return false; }
+    const number = Number(callNumber.value);
+    const payload = {
 
                 complaint_id:
                     complaintId,
@@ -694,9 +801,7 @@ async function createCallSlip(
                     null,
 
                 call_number:
-                    Number(
-                        callNumber.value
-                    ),
+                    number,
 
                 remarks:
                     callRemarks
@@ -709,21 +814,25 @@ async function createCallSlip(
 
                 interview_status:
                     null
-            });
-
-
-    if (result.error) {
-
-        console.error(
-            "Unable to create Call Slip:",
-            result.error
-        );
-
+            };
+    const used = await refreshComplaintCallAvailability(complaintId);
+    if (!used) { lastCallSlipIssue = "Call availability could not be checked. Retry will recheck before saving."; return false; }
+    if (used.has(number)) { lastCallSlipIssue = callConflictMessage(number, used); return false; }
+    try {
+        const result = await supabaseClient.from("call_slips").insert(payload)
+            .select("id, complaint_id, call_number").single();
+        if (result.error) throw result.error;
+        if (!confirmedCallSlip(result.data, complaintId, number)) throw new Error("Insert not confirmed.");
+        // A read failure after confirmed insertion does not turn the successful write into a retry.
+        await refreshComplaintCallAvailability(complaintId);
+        return true;
+    } catch (error) {
+        const reconciled = await refreshComplaintCallAvailability(complaintId);
+        lastCallSlipIssue = error?.code === "23505" ?
+            (reconciled?.has(number) ? callConflictMessage(number, reconciled) : "A duplicate Call Slip was rejected. Recheck existing calls before choosing another number.") :
+            callConflictMessage(number, reconciled, true);
         return false;
     }
-
-
-    return true;
 }
 
 
@@ -731,18 +840,77 @@ async function createCallSlip(
    SAVE COMPLAINT
 ===================================================== */
 
+// HTML required does not reject whitespace in text controls; keep native and JS feedback aligned.
+function requiredComplaintFields() {
+    return [
+        [whoInvolved, "Who Was Involved"],
+        [incidentDatetime, "When"],
+        [locationInput, "Where"],
+        [howHappened, "How"],
+        [complainantName, "Complainant Name"],
+        [complainantStudentId, "Student ID"]
+    ];
+}
+function updateRequiredComplaintValidity(field, label) {
+    const invalid = !!field.value && !field.value.trim();
+    field.setCustomValidity(invalid ? "Please complete " + label + "." : "");
+}
+function validateRequiredComplaintFields() {
+    for (const [field, label] of requiredComplaintFields()) {
+        updateRequiredComplaintValidity(field, label);
+        if (!field.value.trim()) {
+            showMessage("Please complete " + label + ".", false);
+            field.focus();
+            return false;
+        }
+    }
+    return true;
+}
+
 async function saveComplaint(event) {
     event.preventDefault();
-    if (isSavingComplaint || !currentProfile) return;
+    if (isSavingComplaint) return;
+    if (!complaintInitReady && savedComplaintId === null) { showMessage(complaintInitReason, false); return; }
     if (currentProfile.role !== "oswe_admin" && currentProfile.role !== "oswe_staff") {
         showMessage("You do not have permission to add complaints.", false);
         return;
     }
     const retry = savedComplaintId !== null;
+    if (retry) {
+        isSavingComplaint = true;
+        updateComplaintFormState();
+        let used;
+        try { used = await refreshComplaintCallAvailability(savedComplaintId); }
+        finally { isSavingComplaint = false; updateComplaintFormState(); }
+        if (!used) { lastCallSlipIssue = "Call availability could not be checked. Try again before saving."; showCallSlipRetryMessage(); return; }
+        if (used.size === 3) { lastCallSlipIssue = "All three call numbers are already recorded for this complaint."; showCallSlipRetryMessage(); return; }
+    }
     const needsCallSlip = retry || (addCallSlipCheckbox && addCallSlipCheckbox.checked);
     let incidentTimestamp = null;
     hideMessage();
+    let selectedCourseId = null;
+    let courseYearSnapshot = null;
+    let selectedCategory = null;
     if (!retry) {
+        if (!validateRequiredComplaintFields()) return;
+        if (!complaintCoursesReady) {
+            showMessage("Courses are unavailable. Reload before saving a new complaint.", false);
+            return;
+        }
+        selectedCourseId = complainantCourseId.value || null;
+        if (selectedCourseId !== null && !complaintCourseIds.has(selectedCourseId)) {
+            showMessage("Please select a course from the loaded list, or choose Unmapped / Not applicable.", false);
+            complainantCourseId.focus();
+            return;
+        }
+        if (!COMPLAINANT_YEAR_LEVELS.includes(complainantYearLevel.value)) {
+            showMessage("Please select a valid year level.", false);
+            complainantYearLevel.focus();
+            return;
+        }
+        courseYearSnapshot = selectedCourseId === null
+            ? complainantYearLevel.value
+            : complaintCourseCodes.get(selectedCourseId) + " - " + complainantYearLevel.value;
         if (incidentDatetime.value) {
             const value = incidentDatetime.value;
             const match = /^(\d{4})-(\d{2})-(\d{2})T([01]\d|2[0-3]):([0-5]\d)(?::([0-5]\d)(?:\.(\d{1,3}))?)?$/.exec(value);
@@ -758,13 +926,16 @@ async function saveComplaint(event) {
             }
             incidentTimestamp = incidentDate.toISOString();
         }
-        if (!whatHappened.value.trim()) {
-            showMessage("Please enter what happened.", false);
+        selectedCategory = whatHappened.value;
+        if (!APPROVED_COMPLAINT_CATEGORIES.includes(selectedCategory)) {
+            showMessage("Please select a valid offense category.", false);
             whatHappened.focus();
             return;
         }
-        if (!dateReported.value) {
-            showMessage("Please enter the date reported.", false);
+        const reportedDate = new Date(dateReported.value + "T00:00:00Z");
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(dateReported.value) || !Number.isFinite(reportedDate.getTime()) ||
+            reportedDate.toISOString().slice(0, 10) !== dateReported.value) {
+            showMessage("Please enter a valid date reported.", false);
             dateReported.focus();
             return;
         }
@@ -786,9 +957,10 @@ async function saveComplaint(event) {
             {
 
                 p_what_happened:
-                    whatHappened
-                        .value
-                        .trim(),
+                    selectedCategory,
+
+                p_complaint_category:
+                    selectedCategory,
 
                 p_who_involved:
                     whoInvolved
@@ -824,10 +996,7 @@ async function saveComplaint(event) {
                     null,
 
                 p_complainant_course_year_major:
-                    complainantCourse
-                        .value
-                        .trim() ||
-                    null,
+                    courseYearSnapshot,
 
                 p_complainant_student_id:
                     complainantStudentId
@@ -857,7 +1026,10 @@ async function saveComplaint(event) {
                     dateReported.value,
 
                 p_received_by:
-                    currentProfile.full_name
+                    currentProfile.full_name,
+
+                p_complainant_course_id:
+                    selectedCourseId
             }
         );
             if (result.error) {
@@ -961,14 +1133,58 @@ if (logoutButton) {
    INITIALIZE
 ===================================================== */
 
+async function loadComplaintCourses() {
+    complaintCoursesReady = false;
+    complaintCourseIds = new Set();
+    complaintCourseCodes = new Map();
+    const result = await supabaseClient.from("courses")
+        .select("id, course_code, course_name")
+        .order("course_code", { ascending: true });
+    if (result.error) throw result.error;
+    if (!Array.isArray(result.data)) throw new Error("Invalid course list.");
+    const options = [];
+    for (const course of result.data) {
+        // Never round a bigint through Number; reject numeric IDs already outside its safe range.
+        const id = String(course?.id ?? "");
+        if (!/^[1-9]\d*$/.test(id) ||
+            (typeof course.id === "number" && !Number.isSafeInteger(course.id)) ||
+            complaintCourseIds.has(id) || typeof course.course_code !== "string" || typeof course.course_name !== "string") {
+            throw new Error("Invalid course returned.");
+        }
+        complaintCourseIds.add(id);
+        complaintCourseCodes.set(id, course.course_code);
+        const option = document.createElement("option");
+        option.value = id;
+        option.textContent = course.course_code + " - " + course.course_name;
+        options.push(option);
+    }
+    const blank = document.createElement("option");
+    blank.value = "";
+    blank.textContent = "Unmapped / Not applicable";
+    complainantCourseId.replaceChildren(blank, ...options);
+    complainantCourseId.value = "";
+    complaintCoursesReady = true;
+}
+
 async function initialize() {
-
     setToday();
-
-
-    await loadProfile();
     updateComplaintFormState();
+    showMessage(complaintInitReason, false);
+    try {
+        if (!await loadProfile()) throw new Error("Account unavailable.");
+        await loadComplaintCourses();
+        complaintInitReady = true;
+        complaintInitReason = "";
+        hideMessage();
+    } catch (error) {
+        if (!complaintCoursesReady) complainantCourseId.options[0].textContent = "Courses unavailable ? reload to retry";
+        complaintInitReason = safeNetworkMessage(error, "Complaints are unavailable. Account information or courses could not be loaded. Reload to try again.");
+        showMessage(complaintInitReason, false);
+    } finally { updateComplaintFormState(); }
 }
 
 
+for (const [field, label] of requiredComplaintFields()) {
+    field.addEventListener("input", () => updateRequiredComplaintValidity(field, label));
+}
 initialize();

@@ -1,8 +1,9 @@
+let dashboardLoading = true;
 /* =====================================================
    CSUPAK DASHBOARD
 ===================================================== */
 
-console.log("CSUPAK DASHBOARD JS LOADED");
+
 
 /* =====================================================
    ELEMENTS
@@ -174,16 +175,7 @@ async function loadUserProfile() {
             .getUser();
 
 
-    if (
-        userResult.error ||
-        !userResult.data.user
-    ) {
-
-        window.location.href =
-            "../index.html";
-
-        return false;
-    }
+    requireUserResult(userResult);
 
 
     currentUser =
@@ -203,15 +195,7 @@ async function loadUserProfile() {
             .single();
 
 
-    if (profileResult.error) {
-
-        console.error(
-            "Unable to load profile:",
-            profileResult.error
-        );
-
-        return false;
-    }
+    if (profileResult.error) throw profileResult.error;
 
 
     currentProfile =
@@ -466,15 +450,7 @@ async function loadActiveSemester() {
             .maybeSingle();
 
 
-    if (result.error) {
-
-        console.error(
-            "Unable to load active semester:",
-            result.error
-        );
-
-        return false;
-    }
+    if (result.error) throw result.error;
 
 
     activeSemester =
@@ -589,12 +565,21 @@ async function loadViolations() {
         if (retrievedViolations.length !== expectedTotal || ids.size !== expectedTotal) {
             throw new Error("Incomplete violation dataset returned.");
         }
+        for (const violation of retrievedViolations) {
+            validateReportRecord(violation);
+            if (!getManilaPeriod(violation.date_time)) {
+                throw new Error("Report data contains a missing or invalid violation date.");
+            }
+        }
+        populateReportPeriods(retrievedViolations);
         allViolations = retrievedViolations;
         violationsComplete = true;
-        if (generateReportButton) generateReportButton.disabled = false;
+        dashboardLoading = false;
+        if (generateReportButton) generateReportButton.disabled = !canGenerateReport();
         renderDashboard();
     } catch (error) {
-        console.error("Unable to load complete violation data:", error);
+        dashboardLoading = false;
+        console.error("Dashboard violation/report loading failed.");
         violationsComplete = false;
         violationsLoadError = "Unable to load complete violation data. Dashboard totals and reports are unavailable. Reload the page to try again.";
         allViolations = [];
@@ -611,7 +596,10 @@ async function loadViolations() {
 
 function renderDashboard() {
     if (!violationsComplete) {
-        if (totalViolations) totalViolations.textContent = "Unavailable";
+        if (totalViolations) totalViolations.textContent = dashboardLoading ? "Loading..." : "Unavailable";
+        if (reportMonth) reportMonth.disabled = true;
+        if (generateReportButton) generateReportButton.disabled = true;
+        if (reportMonthTitle) reportMonthTitle.textContent = dashboardLoading ? "Loading report..." : "Report unavailable";
         if (violationTypeCards) {
             violationTypeCards.querySelectorAll("[data-violation-type-card]").forEach(function (card) {
                 card.remove();
@@ -633,6 +621,7 @@ function renderDashboard() {
     }
 
 
+    if (reportMonth) reportMonth.disabled = false;
     updateMonthTitle();
 
     filterByMonth();
@@ -678,44 +667,53 @@ function updateMonthTitle() {
    FILTER BY MONTH
 ===================================================== */
 
-function getManilaMonth(date) {
-    if (!Number.isFinite(date.getTime())) return NaN;
-    return Number(new Intl.DateTimeFormat("en-US", {
-        timeZone: "Asia/Manila",
-        month: "numeric"
-    }).format(date));
+function validateReportRecord(violation) {
+    const optionalText = value => value == null || typeof value === "string";
+    if (!optionalText(violation.violation_type)) throw new Error("Invalid violation type.");
+    let relationship = violation.students;
+    for (const next of ["courses", "colleges"]) {
+        if (relationship == null) return;
+        if (typeof relationship !== "object" || Array.isArray(relationship)) {
+            throw new Error("Invalid college relationship.");
+        }
+        relationship = relationship[next];
+    }
+    if (relationship == null) return;
+    if (typeof relationship !== "object" || Array.isArray(relationship) ||
+        !["string", "number"].includes(typeof relationship.id) || !String(relationship.id).trim() ||
+        (typeof relationship.id === "number" && !Number.isFinite(relationship.id)) ||
+        !optionalText(relationship.college_code) || !optionalText(relationship.college_name)) {
+        throw new Error("Invalid college data.");
+    }
+}
+
+function getManilaPeriod(value) {
+    if (typeof value !== "string" && !(value instanceof Date)) return null;
+    if (typeof value === "string" && !value.trim()) return null;
+    // Reject ambiguous timestamps rather than interpreting them in the browser timezone.
+    if (typeof value === "string") {
+        if (!/^\d{4}-\d{2}-\d{2}(?:T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2}))?$/.test(value)) return null;
+        const day = value.slice(0, 10);
+        const calendarDate = new Date(day + "T00:00:00Z");
+        if (!Number.isFinite(calendarDate.getTime()) || calendarDate.toISOString().slice(0, 10) !== day) return null;
+        if (value.length === 10) value += "T00:00:00+08:00";
+    }
+    const date = value instanceof Date ? value : new Date(value);
+    if (!Number.isFinite(date.getTime())) return null;
+    const parts = new Intl.DateTimeFormat("en-US", {
+        timeZone: "Asia/Manila", year: "numeric", month: "2-digit"
+    }).formatToParts(date);
+    return parts.find(part => part.type === "year").value + "-" +
+        parts.find(part => part.type === "month").value;
 }
 
 function filterByMonth() {
-
-    const selectedMonth =
-        Number(
-            reportMonth.value
-        );
-
-
-    monthlyViolations =
-        allViolations.filter(
-            function (violation) {
-
-                if (!violation.date_time) {
-
-                    return false;
-                }
-
-
-                const date =
-                    new Date(
-                        violation.date_time
-                    );
-
-
-                return (
-                    getManilaMonth(date) ===
-                    selectedMonth
-                );
-            }
-        );
+    if (!Array.from(reportMonth.options).some(option => option.value === reportMonth.value)) {
+        throw new Error("Invalid report period.");
+    }
+    monthlyViolations = allViolations.filter(violation =>
+        getManilaPeriod(violation.date_time) === reportMonth.value
+    );
 }
 
 
@@ -727,7 +725,7 @@ function buildViolationTypeCounts(
     violations
 ) {
 
-    const counts = {};
+    const counts = new Map();
 
 
     violations.forEach(
@@ -738,13 +736,7 @@ function buildViolationTypeCounts(
                 "Unspecified";
 
 
-            if (!counts[type]) {
-
-                counts[type] = 0;
-            }
-
-
-            counts[type]++;
+            counts.set(type, (counts.get(type) || 0) + 1);
         }
     );
 
@@ -793,9 +785,7 @@ function renderViolationTypes() {
         );
 
 
-    Object.keys(
-        counts
-    )
+    Array.from(counts.keys())
         .sort()
         .forEach(
             function (type) {
@@ -827,7 +817,7 @@ function renderViolationTypes() {
 
 
                 number.textContent =
-                    counts[type];
+                    counts.get(type);
 
 
                 const label =
@@ -919,11 +909,18 @@ function getViolationCollege(
    - violation types per college
 ===================================================== */
 
+function sortedCollegeKeys(colleges) {
+    return Array.from(colleges.keys()).sort((a, b) => {
+        const left = String(colleges.get(a).code), right = String(colleges.get(b).code);
+        return left < right ? -1 : left > right ? 1 : 0;
+    });
+}
+
 function buildCollegeData(
     violations
 ) {
 
-    const colleges = {};
+    const colleges = new Map();
 
 
     violations.forEach(
@@ -956,52 +953,14 @@ function buildCollegeData(
             }
 
 
-            const key =
-                code;
-
-
-            if (!colleges[key]) {
-
-                colleges[key] = {
-
-                    code:
-                        code,
-
-                    name:
-                        name,
-
-                    total:
-                        0,
-
-                    types:
-                        {}
-                };
+            const key = college && college.id != null ? String(college.id) : null;
+            if (!colleges.has(key)) {
+                colleges.set(key, { code, name, total: 0, types: new Map() });
             }
-
-
-            colleges[key].total++;
-
-
-            const type =
-                violation.violation_type ||
-                "Unspecified";
-
-
-            if (
-                !colleges[
-                    key
-                ].types[type]
-            ) {
-
-                colleges[
-                    key
-                ].types[type] = 0;
-            }
-
-
-            colleges[
-                key
-            ].types[type]++;
+            const data = colleges.get(key);
+            data.total++;
+            const type = violation.violation_type || "Unspecified";
+            data.types.set(type, (data.types.get(type) || 0) + 1);
         }
     );
 
@@ -1033,9 +992,7 @@ function renderCollegeCards() {
 
 
     const codes =
-        Object.keys(
-            colleges
-        ).sort();
+        sortedCollegeKeys(colleges);
 
 
     if (
@@ -1056,7 +1013,7 @@ function renderCollegeCards() {
         function (code) {
 
             const data =
-                colleges[code];
+                colleges.get(code);
 
 
             const button =
@@ -1184,9 +1141,7 @@ function openCollegeModal(
 
 
     const types =
-        Object.keys(
-            data.types
-        ).sort();
+        Array.from(data.types.keys()).sort();
 
 
     if (
@@ -1250,7 +1205,7 @@ function openCollegeModal(
 
 
                 count.textContent =
-                    data.types[type];
+                    data.types.get(type);
 
 
                 row.appendChild(
@@ -1527,9 +1482,7 @@ function buildTypeReportRows(
 ) {
 
     const types =
-        Object.keys(
-            typeCounts
-        ).sort();
+        Array.from(typeCounts.keys()).sort();
 
 
     if (
@@ -1562,7 +1515,7 @@ function buildTypeReportRows(
                     "</td>" +
 
                     "<td class=\"number\">" +
-                        typeCounts[type] +
+                        typeCounts.get(type) +
                     "</td>" +
 
                 "</tr>";
@@ -1583,9 +1536,7 @@ function buildCollegeReportRows(
 ) {
 
     const codes =
-        Object.keys(
-            collegeData
-        ).sort();
+        sortedCollegeKeys(collegeData);
 
 
     if (
@@ -1609,7 +1560,7 @@ function buildCollegeReportRows(
         function (code) {
 
             const college =
-                collegeData[code];
+                collegeData.get(code);
 
 
             rows +=
@@ -1649,9 +1600,7 @@ function buildCollegeTypeSections(
 ) {
 
     const codes =
-        Object.keys(
-            collegeData
-        ).sort();
+        sortedCollegeKeys(collegeData);
 
 
     if (
@@ -1673,13 +1622,11 @@ function buildCollegeTypeSections(
         function (code) {
 
             const college =
-                collegeData[code];
+                collegeData.get(code);
 
 
             const types =
-                Object.keys(
-                    college.types
-                ).sort();
+                Array.from(college.types.keys()).sort();
 
 
             let rows = "";
@@ -1698,9 +1645,7 @@ function buildCollegeTypeSections(
                             "</td>" +
 
                             "<td class=\"number\">" +
-                                college.types[
-                                    type
-                                ] +
+                                college.types.get(type) +
                             "</td>" +
 
                         "</tr>";
@@ -2173,33 +2118,37 @@ function generateReport() {
    MONTH
 ===================================================== */
 
-function restoreSelectedMonth() {
+function canGenerateReport() {
+    return currentProfile && ["oswe_admin", "oswe_staff"].includes(currentProfile.role);
+}
 
-    if (!reportMonth) {
-
-        return;
+function populateReportPeriods(violations) {
+    const periods = new Set(violations.map(violation => getManilaPeriod(violation.date_time)));
+    const start = getManilaPeriod(activeSemester.start_date);
+    const end = getManilaPeriod(activeSemester.end_date);
+    if (start && end && start <= end) {
+        let [year, month] = start.split("-").map(Number);
+        const key = () => String(year).padStart(4, "0") + "-" + String(month).padStart(2, "0");
+        while (key() <= end) {
+            periods.add(key());
+            if (++month > 12) { month = 1; year++; }
+        }
     }
-
-
-    const saved =
-        localStorage.getItem(
-            "csupakReportMonth"
-        );
-
-
-    if (saved) {
-
-        reportMonth.value =
-            saved;
-
-        return;
+    if (!periods.size) throw new Error("No valid report period is available for the active semester.");
+    const choices = Array.from(periods).sort();
+    reportMonth.replaceChildren();
+    for (const period of choices) {
+        const option = document.createElement("option");
+        option.value = period;
+        option.textContent = new Intl.DateTimeFormat("en-US", {
+            timeZone: "Asia/Manila", month: "long", year: "numeric"
+        }).format(new Date(period + "-15T00:00:00Z"));
+        reportMonth.appendChild(option);
     }
-
-
-    reportMonth.value =
-        String(
-            getManilaMonth(new Date())
-        );
+    let saved = null;
+    try { saved = localStorage.getItem("csupakReportPeriod"); } catch (_) { /* Storage may be disabled. */ }
+    const current = getManilaPeriod(new Date());
+    reportMonth.value = periods.has(saved) ? saved : periods.has(current) ? current : choices[choices.length - 1];
 }
 
 
@@ -2213,10 +2162,9 @@ if (reportMonth) {
         "change",
         function () {
 
-            localStorage.setItem(
-                "csupakReportMonth",
-                reportMonth.value
-            );
+            try {
+                localStorage.setItem("csupakReportPeriod", reportMonth.value);
+            } catch (_) { /* Reporting remains usable without persistent storage. */ }
 
 
             renderDashboard();
@@ -2287,66 +2235,22 @@ if (logoutButton) {
 ===================================================== */
 
 async function initializeDashboard() {
-
-    console.log("1. Dashboard initialization started");
-
-    restoreSelectedMonth();
-
-
-    const userLoaded =
-        await loadUserProfile();
-
-    console.log(
-        "2. User loaded:",
-        userLoaded
-    );
-
-
-    if (!userLoaded) {
-
-        console.log(
-            "Dashboard stopped: user profile failed."
-        );
-
-        return;
+    showPageStatus("Loading dashboard...");
+    renderDashboard();
+    try {
+        if (!await loadUserProfile()) throw new Error("Profile unavailable.");
+        if (!await loadActiveSemester()) throw new Error("Active semester unavailable.");
+        await loadViolations();
+        showPageStatus(violationsComplete ? "" : violationsLoadError);
+    } catch (error) {
+        dashboardLoading = false;
+        showPageStatus(safeNetworkMessage(error));
+        violationsComplete = false;
+        allViolations = [];
+        monthlyViolations = [];
+        violationsLoadError = "Dashboard and reports are unavailable. Account or active-semester information could not be loaded. Reload the page to try again.";
+        renderDashboard();
     }
-
-
-    const semesterLoaded =
-        await loadActiveSemester();
-
-    console.log(
-        "3. Semester loaded:",
-        semesterLoaded,
-        activeSemester
-    );
-
-
-    if (!semesterLoaded) {
-
-        console.log(
-            "Dashboard stopped: active semester failed."
-        );
-
-        return;
-    }
-
-
-    console.log(
-        "4. About to load violations"
-    );
-
-
-    await loadViolations();
-
-
-    console.log(
-        "5. Violations loading finished",
-        allViolations
-    );
 }
 
-
 initializeDashboard();
-
-//FIX

@@ -1,3 +1,5 @@
+let recordInitReady = false;
+let recordInitReason = "Loading account, semester, and courses...";
 /* =====================================================
    CSUPAK - RECORD VIOLATION
 ===================================================== */
@@ -228,16 +230,7 @@ async function loadUser() {
             .getUser();
 
 
-    if (
-        userResult.error ||
-        !userResult.data.user
-    ) {
-
-        window.location.href =
-            "../index.html";
-
-        return false;
-    }
+    requireUserResult(userResult);
 
 
     currentUser =
@@ -257,16 +250,7 @@ async function loadUser() {
             .single();
 
 
-    if (profileResult.error) {
-
-        console.error(
-            "Unable to load profile:",
-            profileResult.error
-        );
-
-
-        return false;
-    }
+    if (profileResult.error) throw profileResult.error;
 
 
     currentProfile =
@@ -316,66 +300,43 @@ async function loadUser() {
 ===================================================== */
 
 function applyNavigationPermissions() {
-
     if (!currentProfile) {
-
         return;
     }
 
+    // Hide role-specific navigation links first.
+    hideNav(complaintsNav);
+    hideNav(complaintTrackingNav);
+    hideNav(interviewTrackingNav);
 
+    // Admin and staff can access Complaints and Interview Tracking.
     if (
-        currentProfile.role ===
-            "oswe_staff" ||
-        currentProfile.role ===
-            "oswe_admin"
+        currentProfile.role === "oswe_admin" ||
+        currentProfile.role === "oswe_staff"
     ) {
-
-        complaintsNav
-            .classList
-            .remove(
-                "hidden"
-            );
-
-        complaintsNav
-            .classList
-            .add(
-                "flex"
-            );
-
-
-        interviewTrackingNav
-            .classList
-            .remove(
-                "hidden"
-            );
-
-        interviewTrackingNav
-            .classList
-            .add(
-                "flex"
-            );
+        showNav(complaintsNav);
+        showNav(interviewTrackingNav);
     }
 
-
-    if (
-        currentProfile.role ===
-        "oswe_admin"
-    ) {
-
-        complaintTrackingNav
-            .classList
-            .remove(
-                "hidden"
-            );
-
-        complaintTrackingNav
-            .classList
-            .add(
-                "flex"
-            );
+    // Only admin can access Complaint Tracking.
+    if (currentProfile.role === "oswe_admin") {
+        showNav(complaintTrackingNav);
     }
 }
 
+function showNav(element) {
+    if (!element) return;
+
+    element.classList.remove("hidden");
+    element.classList.add("flex");
+}
+
+function hideNav(element) {
+    if (!element) return;
+
+    element.classList.add("hidden");
+    element.classList.remove("flex");
+}
 
 /* =====================================================
    ACTIVE SEMESTER
@@ -396,22 +357,7 @@ async function loadActiveSemester() {
             .maybeSingle();
 
 
-    if (result.error) {
-
-        console.error(
-            "Unable to load active semester:",
-            result.error
-        );
-
-
-        showMessage(
-            "Unable to load the active semester.",
-            false
-        );
-
-
-        return false;
-    }
+    if (result.error) throw result.error;
 
 
     if (!result.data) {
@@ -454,39 +400,7 @@ async function loadCourses() {
             );
 
 
-    if (result.error) {
-
-        console.error(
-            "Unable to load courses:",
-            result.error
-        );
-
-
-        courseId.innerHTML =
-            "";
-
-
-        const option =
-            document.createElement(
-                "option"
-            );
-
-
-        option.value =
-            "";
-
-
-        option.textContent =
-            "Unable to load courses";
-
-
-        courseId.appendChild(
-            option
-        );
-
-
-        return false;
-    }
+    if (result.error) throw result.error;
 
 
     courses =
@@ -1134,6 +1048,7 @@ async function saveViolation(
 
 
     if (isSaving) return;
+    if (!recordInitReady && savedViolationId === null) { showMessage(recordInitReason, false); return; }
 
     hideMessage();
 
@@ -1272,6 +1187,14 @@ async function saveViolation(
         return;
     }
 
+    if (savedViolationId === null && violationType.value === "Illegal Parking" && !selectedPhoto) {
+    showMessage("A photo attachment is required for Illegal Parking.", false);
+
+    photoInput.click();
+
+    return;
+    }
+
     if (
         selectedPhoto &&
         !validatePhoto(
@@ -1342,7 +1265,7 @@ function updateFormState() {
     removePhotoButton.disabled = isSaving;
     clearButton.disabled = isSaving;
     clearButton.textContent = retryMode ? "Start New Violation" : "Clear";
-    submitButton.disabled = isSaving;
+    submitButton.disabled = isSaving || (!recordInitReady && !retryMode);
     if (!isSaving) submitButton.textContent = retryMode ? "Retry Photo" : "Save Violation";
 }
 
@@ -1464,26 +1387,21 @@ logoutButton.addEventListener(
 ===================================================== */
 
 async function initialize() {
-
     updateSpecifyViolation();
-
     setCurrentDateTime();
-
-
-    const userLoaded =
-        await loadUser();
-
-
-    if (!userLoaded) {
-
-        return;
-    }
-
-
-    await Promise.all([
-        loadActiveSemester(),
-        loadCourses()
-    ]);
+    updateFormState();
+    showMessage(recordInitReason, false);
+    try {
+        if (!await loadUser()) throw new Error("Account unavailable.");
+        const [semesterLoaded, coursesLoaded] = await Promise.all([loadActiveSemester(), loadCourses()]);
+        if (!semesterLoaded || !coursesLoaded || !courses.length) throw new Error("Required form data unavailable.");
+        recordInitReady = true;
+        recordInitReason = "";
+        hideMessage();
+    } catch (error) {
+        recordInitReason = safeNetworkMessage(error, "Recording is unavailable. Account, active semester, or courses could not be loaded. Reload to try again.");
+        showMessage(recordInitReason, false);
+    } finally { updateFormState(); }
 }
 
 

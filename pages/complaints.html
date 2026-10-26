@@ -75,7 +75,7 @@
             <a
                 id="complaintsNav"
                 href="complaints.html"
-                class="mb-1 hidden items-center rounded-lg bg-white/15 px-4 py-2.5 text-sm font-semibold"
+                class="hidden mb-1 flex items-center rounded-lg bg-white/15 px-4 py-2.5 text-sm font-semibold"
             >
                 Add Complaint
             </a>
@@ -84,7 +84,7 @@
             <a
                 id="complaintTrackingNav"
                 href="complaint-tracking.html"
-                class="mb-1 hidden items-center rounded-lg px-4 py-2.5 text-sm font-medium text-green-50 hover:bg-white/10"
+                class="hidden mb-1 flex items-center rounded-lg px-4 py-2.5 text-sm font-medium text-green-50 hover:bg-white/10"
             >
                 Complaint Tracking
             </a>
@@ -93,7 +93,7 @@
             <a
                 id="interviewTrackingNav"
                 href="call-slips.html"
-                class="mb-1 hidden items-center rounded-lg px-4 py-2.5 text-sm font-medium text-green-50 hover:bg-white/10"
+                class="hidden mb-1 flex items-center rounded-lg px-4 py-2.5 text-sm font-medium text-green-50 hover:bg-white/10"
             >
                 Interview Tracking
             </a>
@@ -204,23 +204,93 @@
                     <div class="grid grid-cols-1 gap-5 md:grid-cols-2">
 
 
-                        <div class="md:col-span-2">
+    
+<!-- OFFENSE CATEGORY -->
+<div>
+    <label
+        for="whatHappened"
+        class="mb-2 block text-sm font-semibold text-gray-700"
+    >
+        Offense Category <span class="text-red-500">*</span>
+    </label>
 
-                            <label
-                                for="whatHappened"
-                                class="mb-2 block text-sm font-semibold text-gray-700"
-                            >
-                                What Happened *
-                            </label>
+    <div class="relative" id="offenseDropdown">
+        <!-- Visible dropdown button -->
+        <button
+            type="button"
+            id="offenseDropdownButton"
+            aria-haspopup="listbox"
+            aria-expanded="false"
+            class="flex w-full items-center justify-between rounded-xl border border-gray-200 bg-gray-50 px-4 py-3.5 text-left text-sm text-gray-800 shadow-sm transition hover:border-green-300 focus:border-[#006B21] focus:bg-white focus:outline-none focus:ring-4 focus:ring-green-100"
+        >
+            <span id="offenseDropdownLabel" class="text-gray-500">
+                Select an offense category
+            </span>
 
-                            <textarea
-                                id="whatHappened"
-                                rows="4"
-                                required
-                                class="w-full resize-none rounded-xl border border-gray-300 px-4 py-3 text-sm outline-none focus:border-[#006B21] focus:ring-2 focus:ring-green-100"
-                            ></textarea>
+            <svg
+                id="offenseDropdownArrow"
+                xmlns="http://www.w3.org/2000/svg"
+                class="h-4 w-4 shrink-0 text-gray-500 transition-transform duration-200"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                stroke-width="2"
+            >
+                <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    d="m7 10 5 5 5-5"
+                />
+            </svg>
+        </button>
 
-                        </div>
+        <!-- Custom options panel -->
+        <div
+            id="offenseDropdownMenu"
+            class="offense-dropdown-menu hidden"
+            role="listbox"
+            aria-label="Offense categories"
+        >
+            <button type="button" class="offense-dropdown-option" data-value="Offenses Against Security" role="option">
+                <span>Offenses Against Security</span>
+                <span class="offense-check hidden">✓</span>
+            </button>
+
+            <button type="button" class="offense-dropdown-option" data-value="Offenses Against Property" role="option">
+                <span>Offenses Against Property</span>
+                <span class="offense-check hidden">✓</span>
+            </button>
+
+            <button type="button" class="offense-dropdown-option" data-value="Offenses Against Order" role="option">
+                <span>Offenses Against Order</span>
+                <span class="offense-check hidden">✓</span>
+            </button>
+
+            <button type="button" class="offense-dropdown-option" data-value="Offenses Involving Dishonesty" role="option">
+                <span>Offenses Involving Dishonesty</span>
+                <span class="offense-check hidden">✓</span>
+            </button>
+
+            <button type="button" class="offense-dropdown-option" data-value="Offenses Against Public Morals" role="option">
+                <span>Offenses Against Public Morals</span>
+                <span class="offense-check hidden">✓</span>
+            </button>
+        </div>
+
+        <!-- Preserve the original field for form submission -->
+        <input
+            type="hidden"
+            id="whatHappened"
+            name="whatHappened"
+            value=""
+            required
+        >
+    </div>
+
+    <p class="mt-2 text-xs leading-5 text-gray-500">
+        Select the category that best matches the reported offense.
+    </p>
+</div>
 
 
                         <div>
@@ -234,6 +304,8 @@
 
                             <input
                                 id="whoInvolved"
+                                    required
+                                    pattern=".*\S.*"
                                 type="text"
                                 class="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm outline-none focus:border-[#006B21] focus:ring-2 focus:ring-green-100"
                             >
@@ -252,6 +324,7 @@
 
                             <input
                                 id="incidentDatetime"
+                                    required
                                 type="datetime-local"
                                 class="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm outline-none focus:border-[#006B21] focus:ring-2 focus:ring-green-100"
                             >
@@ -270,6 +343,8 @@
 
                             <input
                                 id="location"
+                                    required
+                                    pattern=".*\S.*"
                                 type="text"
                                 class="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm outline-none focus:border-[#006B21] focus:ring-2 focus:ring-green-100"
                             >
@@ -288,6 +363,7 @@
 
                             <textarea
                                 id="howHappened"
+                                    required
                                 rows="4"
                                 class="w-full resize-none rounded-xl border border-gray-300 px-4 py-3 text-sm outline-none focus:border-[#006B21] focus:ring-2 focus:ring-green-100"
                             ></textarea>
@@ -338,6 +414,8 @@
 
                                 <input
                                     id="complainantName"
+                                    required
+                                    pattern=".*\S.*"
                                     type="text"
                                     class="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm outline-none focus:border-[#006B21] focus:ring-2 focus:ring-green-100"
                                 >
@@ -356,6 +434,8 @@
 
                                 <input
                                     id="complainantStudentId"
+                                    required
+                                    pattern=".*\S.*"
                                     type="text"
                                     class="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm outline-none focus:border-[#006B21] focus:ring-2 focus:ring-green-100"
                                 >
@@ -366,17 +446,45 @@
                             <div>
 
                                 <label
-                                    for="complainantCourse"
+                                    for="complainantCourseId"
                                     class="mb-2 block text-sm font-semibold text-gray-700"
                                 >
-                                    Course / Year / Major
+                                    Course
                                 </label>
 
-                                <input
-                                    id="complainantCourse"
-                                    type="text"
-                                    class="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm outline-none focus:border-[#006B21] focus:ring-2 focus:ring-green-100"
+                                <select
+                                    id="complainantCourseId"
+                                    disabled
+                                    class="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm outline-none focus:border-[#006B21] focus:ring-2 focus:ring-green-100"
                                 >
+                                    <option value="">Loading courses...</option>
+                                </select>
+
+                            </div>
+
+
+                            <div>
+
+                                <label
+                                    for="complainantYearLevel"
+                                    class="mb-2 block text-sm font-semibold text-gray-700"
+                                >
+                                    Year Level
+                                </label>
+
+                                <select
+                                    id="complainantYearLevel"
+                                    required
+                                    class="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm outline-none focus:border-[#006B21] focus:ring-2 focus:ring-green-100"
+                                >
+                                    <option value="">Select year level</option>
+                                    <option value="1st Year">1st Year</option>
+                                    <option value="2nd Year">2nd Year</option>
+                                    <option value="3rd Year">3rd Year</option>
+                                    <option value="4th Year">4th Year</option>
+                                    <option value="5th Year">5th Year</option>
+                                    <option value="6th Year">6th Year</option>
+                                </select>
 
                             </div>
 

@@ -1,3 +1,4 @@
+const violationMutations = new Set();
 /* =====================================================
    CSUPAK - VIOLATION RECORDS
 ===================================================== */
@@ -331,16 +332,7 @@ async function loadProfile() {
             .getUser();
 
 
-    if (
-        userResult.error ||
-        !userResult.data.user
-    ) {
-
-        window.location.href =
-            "../index.html";
-
-        return false;
-    }
+    requireUserResult(userResult);
 
 
     const profileResult =
@@ -356,15 +348,7 @@ async function loadProfile() {
             .single();
 
 
-    if (profileResult.error) {
-
-        console.error(
-            "Unable to load profile:",
-            profileResult.error
-        );
-
-        return false;
-    }
+    if (profileResult.error) throw profileResult.error;
 
 
     currentProfile =
@@ -414,42 +398,43 @@ async function loadProfile() {
 ===================================================== */
 
 function applyNavigationPermissions() {
-
     if (!currentProfile) {
-
         return;
     }
 
+    // Hide role-specific navigation links first.
+    hideNav(complaintsNav);
+    hideNav(complaintTrackingNav);
+    hideNav(interviewTrackingNav);
 
+    // Admin and staff can access Complaints and Interview Tracking.
     if (
-        currentProfile.role ===
-            "oswe_staff" ||
-        currentProfile.role ===
-            "oswe_admin"
+        currentProfile.role === "oswe_admin" ||
+        currentProfile.role === "oswe_staff"
     ) {
-
-        showNav(
-            complaintsNav
-        );
-
-
-        showNav(
-            interviewTrackingNav
-        );
+        showNav(complaintsNav);
+        showNav(interviewTrackingNav);
     }
 
-
-    if (
-        currentProfile.role ===
-        "oswe_admin"
-    ) {
-
-        showNav(
-            complaintTrackingNav
-        );
+    // Only admin can access Complaint Tracking.
+    if (currentProfile.role === "oswe_admin") {
+        showNav(complaintTrackingNav);
     }
 }
 
+function showNav(element) {
+    if (!element) return;
+
+    element.classList.remove("hidden");
+    element.classList.add("flex");
+}
+
+function hideNav(element) {
+    if (!element) return;
+
+    element.classList.add("hidden");
+    element.classList.remove("flex");
+}
 
 /* =====================================================
    SHOW NAV
@@ -493,15 +478,7 @@ async function loadActiveSemester() {
             .maybeSingle();
 
 
-    if (result.error) {
-
-        console.error(
-            "Unable to load active semester:",
-            result.error
-        );
-
-        return false;
-    }
+    if (result.error) throw result.error;
 
 
     activeSemester =
@@ -1634,40 +1611,10 @@ function createStatusSelect(
     );
 
 
-    select.addEventListener(
-        "change",
-        async function () {
-
-            const previousStatus =
-                violation.status;
-
-
-            const newStatus =
-                select.value;
-
-
-            select.disabled =
-                true;
-
-
-            const updated =
-                await updateViolationStatus(
-                    violation.id,
-                    newStatus
-                );
-
-
-            if (!updated) {
-
-                select.value =
-                    previousStatus;
-            }
-
-
-            select.disabled =
-                false;
-        }
-    );
+    select.disabled = violationMutations.has(String(violation.id));
+    select.addEventListener("change", async function () {
+        await updateViolationStatus(violation.id, select.value, select);
+    });
 
 
     return select;
@@ -1682,179 +1629,110 @@ function createStatusSelect(
    UPDATE STATUS
 ===================================================== */
 
-async function updateViolationStatus(
-    violationId,
-    newStatus
-) {
-
-    console.log(
-        "UPDATE STATUS FUNCTION CALLED"
-    );
-
-    if (
-        currentProfile.role !== "oswe_admin" &&
-        currentProfile.role !== "oswe_staff"
-    ) {
-
-        alert(
-            "You do not have permission to change the violation status."
-        );
-
-        return false;
+async function updateViolationStatus(violationId, newStatus, control) {
+    const key = String(violationId);
+    const record = allViolations.find(item => String(item.id) === key);
+    if (violationMutations.has(key) || !record) return;
+    if (!currentProfile || !["oswe_admin", "oswe_staff"].includes(currentProfile.role)) {
+        alert("You do not have permission to change the violation status.");
+        if (control) control.value = record.status || "";
+        return;
     }
-
-    console.log(
-        "Updating:",
-        violationId,
-        "to:",
-        newStatus
-    );
-
-    const result =
-        await supabaseClient
-            .from("violations")
-            .update({
-                status: newStatus
-            })
-            .eq(
-                "id",
-                violationId
-            );
-
-    console.log(
-        "SUPABASE RESULT:",
-        result
-    );
-
-    if (result.error) {
-
-        console.error(
-            "Unable to update violation status:",
-            result.error
-        );
-
-        alert(
-            "Unable to update the violation status."
-        );
-
-        return false;
+    const previous = record.status;
+    violationMutations.add(key);
+    if (control) control.disabled = true;
+    try {
+        const result = await supabaseClient.from("violations").update({status: newStatus})
+            .eq("id", violationId).select("id, status").single();
+        if (result.error || !result.data || String(result.data.id) !== key || result.data.status !== newStatus) {
+            throw new Error("Update not confirmed.");
+        }
+        const current = allViolations.find(item => String(item.id) === key);
+        if (current) current.status = result.data.status;
+        showStatusNotification();
+    } catch (_) {
+        if (control) control.value = previous || "";
+        alert("Status change could not be confirmed. Refresh to verify before trying again.");
+    } finally {
+        violationMutations.delete(key);
+        if (control) control.disabled = false;
+        renderViolations();
     }
-
-    console.log(
-        "STATUS UPDATED SUCCESSFULLY"
-    );
-
-    const record =
-        allViolations.find(
-            function (violation) {
-                return (
-                    violation.id ===
-                    violationId
-                );
-            }
-        );
-
-    if (record) {
-        record.status = newStatus;
-    }
-
-    renderViolations();
-
-    // Show notification ONLY ONCE
-    showStatusNotification();
-
-    return true;
 }
 
 /* =====================================================
    VIEW PRIVATE PHOTO
 ===================================================== */
 
-async function viewPhoto(
-    photo
-) {
-
-    if (
-        !photo ||
-        !photo.file_path
-    ) {
-
-        return;
-    }
-
-
-    /*
-        Bucket is private, so create a
-        temporary signed URL.
-    */
-
-    const result =
-        await supabaseClient
-            .storage
-            .from(
-                "violation-photos"
-            )
-            .createSignedUrl(
-                photo.file_path,
-                60
-            );
-
-
-    if (result.error) {
-
-        console.error(
-            "Unable to load photo:",
-            result.error
-        );
-
-
-        alert(
-            "Unable to load the evidence photo."
-        );
-
-
-        return;
-    }
-
-
-    photoModalImage.src =
-        result.data.signedUrl;
-
-
-    photoModalName.textContent =
-        photo.file_name ||
-        "Violation Evidence";
-
-
-    photoModal.classList.remove(
-        "hidden"
-    );
-
-
-    photoModal.classList.add(
-        "flex"
-    );
+let photoRequestToken = 0;
+let photoLoader = null;
+let photoFeedback = null;
+let photoRetry = null;
+function clearPhotoRequest() {
+    if (photoLoader) { photoLoader.onload = null; photoLoader.onerror = null; photoLoader.removeAttribute("src"); }
+    photoLoader = null;
+    photoModalImage.onload = null;
+    photoModalImage.onerror = null;
+    photoModalImage.removeAttribute("src");
+    photoModalImage.hidden = true;
 }
-
-
-/* =====================================================
-   CLOSE PHOTO
-===================================================== */
-
+async function viewPhoto(photo) {
+    if (!photo?.file_path) return;
+    const token = ++photoRequestToken;
+    const isCurrent = () => token === photoRequestToken;
+    clearPhotoRequest();
+    if (!photoFeedback) {
+        photoFeedback = document.createElement("p");
+        photoFeedback.setAttribute("role", "status");
+        photoModalImage.insertAdjacentElement("beforebegin", photoFeedback);
+        photoRetry = document.createElement("button");
+        photoRetry.type = "button";
+        photoRetry.textContent = "Retry photo";
+        photoRetry.className = "rounded-lg border px-3 py-2 text-sm";
+        photoFeedback.insertAdjacentElement("afterend", photoRetry);
+    }
+    photoFeedback.textContent = "Loading...";
+    photoRetry.hidden = true;
+    photoRetry.onclick = () => { if (isCurrent()) viewPhoto(photo); };
+    photoModalName.textContent = photo.file_name || "Violation Evidence";
+    photoModal.classList.remove("hidden");
+    photoModal.classList.add("flex");
+    const fail = message => {
+        if (!isCurrent()) return;
+        photoFeedback.textContent = message;
+        photoRetry.hidden = false;
+        photoModalImage.hidden = true;
+    };
+    try {
+        const result = await supabaseClient.storage.from("violation-photos").createSignedUrl(photo.file_path, 60);
+        if (!isCurrent()) return;
+        if (result.error) throw result.error;
+        if (!result.data?.signedUrl) throw new Error("Photo URL unavailable.");
+        // A separate image per request prevents an older image event being handled as the newer photo.
+        const loader = new Image();
+        photoLoader = loader;
+        loader.onload = () => {
+            if (!isCurrent()) return;
+            photoFeedback.textContent = "";
+            photoRetry.hidden = true;
+            photoModalImage.onerror = () => fail("The evidence image could not be loaded. Try again.");
+            photoModalImage.src = result.data.signedUrl;
+            photoModalImage.hidden = false;
+        };
+        loader.onerror = () => fail("The evidence image could not be loaded. Try again.");
+        loader.src = result.data.signedUrl;
+    } catch (error) {
+        fail(safeNetworkMessage(error, "Unable to open the evidence photo. Try again."));
+    }
+}
 function hidePhotoModal() {
-
-    photoModal.classList.add(
-        "hidden"
-    );
-
-
-    photoModal.classList.remove(
-        "flex"
-    );
-
-
-    photoModalImage.src =
-        "";
+    photoRequestToken++;
+    clearPhotoRequest();
+    photoModal.classList.add("hidden");
+    photoModal.classList.remove("flex");
+    photoModalName.textContent = "";
+    if (photoFeedback) photoFeedback.textContent = "";
+    if (photoRetry) { photoRetry.hidden = true; photoRetry.onclick = null; }
 }
 
 
@@ -2017,28 +1895,25 @@ logoutButton.addEventListener(
 ===================================================== */
 
 async function initialize() {
-
-    const profileLoaded =
-        await loadProfile();
-
-
-    if (!profileLoaded) {
-
-        return;
+    violationsLoading = true;
+    violationsComplete = false;
+    refreshButton.disabled = true;
+    renderViolations();
+    showPageStatus("Loading account and records...");
+    try {
+        if (!await loadProfile()) throw new Error("Account unavailable.");
+        if (!await loadActiveSemester()) throw new Error("Semester unavailable.");
+        violationsLoading = false;
+        showPageStatus("");
+        await loadViolations();
+    } catch (error) {
+        violationsLoading = false;
+        violationsLoadError = safeNetworkMessage(error);
+        showPageStatus(violationsLoadError);
+        renderViolations();
+        // Reload reruns authorization and required initialization before data access.
+        refreshButton.disabled = true;
     }
-
-
-    const semesterLoaded =
-        await loadActiveSemester();
-
-
-    if (!semesterLoaded) {
-
-        return;
-    }
-
-
-    await loadViolations();
 }
 
 
