@@ -1,0 +1,45 @@
+{
+  "project": "CSUPAK",
+  "source_snapshot": "2026-11-22 public schema-only export",
+  "status": "ISOLATED RECONSTRUCTION AND SELECTED SMOKE TESTS PASSED; NOT PRODUCTION DEPLOYMENT APPROVAL",
+  "source_sha256": "0fdcc29783c49b042eb12ede0863864a46c8d7f58a367b3d918096bb07bfddfe",
+  "seed_sha256": "b9e5f8b8f3fa3f8aceed8f7859e271150c2d13ce56e28f4598ca47bf38cf9394",
+  "schema_counts": {
+    "tables": 13,
+    "function_signatures": 14,
+    "triggers": 3,
+    "foreign_keys": 17,
+    "check_constraints": 12,
+    "rls_policies": 34,
+    "identity_sequences": 12,
+    "non_unique_additional_indexes": 7
+  },
+  "seed_counts": {
+    "colleges": 7,
+    "courses": 30,
+    "semesters": 1
+  },
+  "notes": [
+    "Production inspected read-only",
+    "Raw baseline preserved byte-for-byte",
+    "Exact tested adaptation included; source default ACLs omitted",
+    "Storage recreated separately",
+    "Full security and application testing deferred",
+    "Historical migration not to be reapplied"
+  ],
+  "validation_through": "2026-11-24",
+  "target_postgresql": "17.12",
+  "file_sha256": {
+    "README.md": "9ceec2275a95cc77b90111d6ed92c2a01ef0997809ed59d5da44720ea68e04ea",
+    "docs/DATABASE.md": "666735227eaaee3ea74dc16c1d3f81a0d50e544ecec2a5cae08e3db9a7c88c57",
+    "docs/ERD.md": "305f2ac522d49eceeb2334ab649f6ba4e94c9d1a84098d98a162555ca0e7b3dc",
+    "docs/RESTORE_CHECKLIST.md": "d59408d417ad5df7b036e47030ed220c9bafcb0ac25b5d05a28cd056ee0c4eea",
+    "docs/SECURITY.md": "1f6cc920685a2a5bdbcb2d5bcb1f1f262ed6682152ac2c830cc53cb6f1daeeb6",
+    "docs/STORAGE.md": "996990a32f2e6a9596f3f09b4cdc4134fd4d16c6303476299aa922c9889ae055",
+    "docs/verify_read_only.sql": "c6f2d6252941c5e1f4cd102b2d67b041b94434928d5cc90412babe9b1ebcdbe1",
+    "schema/baseline.sql": "0fdcc29783c49b042eb12ede0863864a46c8d7f58a367b3d918096bb07bfddfe",
+    "seeds/reference_data.sql": "b9e5f8b8f3fa3f8aceed8f7859e271150c2d13ce56e28f4598ca47bf38cf9394",
+    "schema/baseline_TEST_only.sql": "3a6457c3dc334bf12121b86260a079e0dcfe48149b10e36115ba031ea7a2b245",
+    "docs/VALIDATION.md": "b7d35ea187b21d2fe9cfb1043739973ec314d8b9121c42275cf96b07d65323e6"
+  }
+}
