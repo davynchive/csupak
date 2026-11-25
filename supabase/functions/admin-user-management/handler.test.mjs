@@ -279,6 +279,40 @@ test("forwards literal search, role, false status, cursor, and limit", async () 
     });
 });
 
+test("opt-in roster projection forwards the caller and accepts only scoped onboarding fields", async () => {
+    const pending = { ...firstRosterUser, accountState: "setup_pending", setupOperationId: resetOperation, setupEmailState: "outcome_unknown" };
+    const page = { users: [pending], nextCursor: null };
+    const { handle, calls } = harness(rosterResponse(page));
+    await expectPage(await handle(listRequest({ includeOnboarding: true, isActive: false })), page);
+    assert(calls[2].url.endsWith("/admin_list_users_with_onboarding"));
+    assert.equal(calls[2].options.headers.Authorization, token);
+    assert.deepEqual(JSON.parse(calls[2].options.body), { p_is_active: false });
+    for (const fields of [{ accountState: "awaiting_activation" }, { setupOperationId: null }, { internal: true }]) {
+        const bad = harness(rosterResponse({ users: [{ ...pending, ...fields }], nextCursor: null }));
+        await expectError(await bad.handle(listRequest({ includeOnboarding: true })), 503, "service_unavailable");
+    }
+    const badRequest = harness();
+    await expectError(await badRequest.handle(listRequest({ includeOnboarding: "yes" })), 400, "invalid_parameters");
+});
+
+test("interrupted provisioning lists only the validated action projection under the caller JWT", async () => {
+    const interruptedRequest = params => request({ body: JSON.stringify({ action: "list_interrupted_provisioning", ...params }) });
+    const row = { operationId: resetOperation, fullName: "Pending User", email: "pending@example.invalid", role: "oswe_staff" };
+    const page = { requests: [row], nextCursor: resetOperation };
+    const { handle, calls } = harness(rosterResponse(page));
+    await expectPage(await handle(interruptedRequest({ limit: 1 })), page);
+    assert(calls[2].url.endsWith("/admin_list_my_interrupted_provisioning"));
+    assert.equal(calls[2].options.headers.Authorization, token);
+    assert.deepEqual(JSON.parse(calls[2].options.body), { p_limit: 1 });
+    const extra = harness(rosterResponse({ requests: [{ ...row, actorId: user.id }], nextCursor: null }));
+    await expectError(await extra.handle(interruptedRequest()), 503, "service_unavailable");
+    const denied = harness([Response.json(user), Response.json("oswe_staff")]);
+    await expectError(await denied.handle(interruptedRequest()), 403, "access_denied");
+    assert.equal(denied.calls.length, 2);
+    const invalid = harness([]);
+    await expectError(await invalid.handle(interruptedRequest({ actorId: user.id })), 400, "invalid_parameters");
+});
+
 test("first page returns the last UUID as cursor and the next request forwards it", async () => {
     const first = { users: [firstRosterUser], nextCursor: firstRosterUser.id };
     const last = { users: [secondRosterUser], nextCursor: null };

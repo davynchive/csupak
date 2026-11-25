@@ -4,8 +4,6 @@ const settingsRoleLabels = {
     security_office: "Security Office"
 };
 const settingsStatus = document.getElementById("pageReliabilityStatus");
-const settingNotice = document.getElementById("settingNotice");
-const settingNoticeTitle = document.getElementById("settingNoticeTitle");
 const myAccountButton = document.getElementById("openMyAccount");
 const myAccountDialog = document.getElementById("myAccountDialog");
 const accountFullName = document.getElementById("accountFullName");
@@ -19,14 +17,6 @@ let accountSavePending = false;
 let accountSignInMessage = "";
 
 document.getElementById("logoutButton").addEventListener("click", logout);
-document.getElementById("closeSettingNotice").addEventListener("click", () => settingNotice.close());
-
-for (const row of document.querySelectorAll("[data-setting]")) {
-    row.addEventListener("click", () => {
-        settingNoticeTitle.textContent = row.querySelector("[data-setting-title]").textContent;
-        settingNotice.showModal();
-    });
-}
 
 myAccountButton.addEventListener("click", openMyAccount);
 document.getElementById("closeMyAccount").addEventListener("click", () => myAccountDialog.close());

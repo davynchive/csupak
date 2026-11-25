@@ -340,7 +340,54 @@ On 2026-11-26, all six migrations from `202611250004` through `202611250009` pas
 | OSWE Administrator `check_access` | Passed |
 | OSWE Administrator `list_users` | Passed |
 
-Hosted mutation and email lifecycle testing is deferred to consolidated end-to-end testing after the User Management interface is implemented.
+The initial function deployment covered authorization and roster smoke checks. The consolidated browser checkpoint below covers the subsequent User Management rollout.
+
+## User Management interface
+
+Settings opens **Manage Users**, **Add User**, and **Roles & Access** for an eligible administrator. Manage Users and Roles & Access share the server-paginated roster. The roster filters by active/inactive access, role, and literal name or email search. The status badges distinguish active, pending setup, awaiting activation, and deactivated accounts.
+
+- `list_users` accepts optional `includeOnboarding: true`. It adds `accountState`, `setupOperationId`, and `setupEmailState` to each result. The latter two fields are null unless the profile is pending setup and the caller created it. Historic activation is determined from the existing audited status operations. Requests that omit the option keep the original response.
+- `list_interrupted_provisioning` accepts `cursor` and `limit`. It returns `{ requests, nextCursor }` with the operation ID and original name, email, and role for the caller’s incomplete requests. Add User reuses those inputs and the operation ID with `create_user`. The browser receives no internal attempt IDs, timestamps, or audit history. The underlying RPCs independently verify administrator eligibility and preserve provisioning ownership.
+- Successful mutations refresh the roster. The open page retains unresolved request IDs in memory for manual retry. After reopening the browser, the original administrator can find reservations on Add User or find profile-ready requests on the roster. Setup resends are explicit, including after a timeout. Check the recipient’s inbox before sending again when the outcome is unknown.
+
+The focused frontend logic suite runs with `node --test scripts/user-management.test.mjs`. The Edge suite also verifies both projections with mocked upstream responses. `python scripts/test-provisioning-db.py` exercises the views with synthetic accounts in an isolated local PostgreSQL database.
+
+### TEST rollout
+
+1. Verify the dashboard project reference is `amgybdiyqqnhrfmsnsit`. In its SQL Editor, apply [migration 202611260001](../../migrations/202611260001_admin_user_management_views.sql) as the owner of the private provisioning ledger. Run the [read-only verifier](verify_admin_user_management_views.sql). Expect two stable security-definer functions owned by the ledger owner, with EXECUTE for `authenticated` only.
+2. From the repository root, deploy only the updated named function. The existing gateway JWT setting stays enabled. Preserve the TEST redirect URLs, template, and secrets from the hosted checkpoint.
+
+   ```powershell
+   $testRef = 'amgybdiyqqnhrfmsnsit'
+   $saved = Get-Content -LiteralPath '.csupak-test.local.json' -Raw | ConvertFrom-Json
+   $productionRef = [regex]::Match(
+       (Get-Content -LiteralPath 'js/supabase.js' -Raw),
+       'const\s+supabaseUrl\s*=\s*["'']https://([a-z0-9]{20})\.supabase\.co/?["'']'
+   ).Groups[1].Value
+   if (!$productionRef -or $testRef -ceq $productionRef -or $saved.projectRef -cne $testRef -or
+       $saved.projectUrl -cne "https://$testRef.supabase.co") { throw 'Could not verify CSUPAK-TEST.' }
+   & .\node_modules\.bin\supabase.cmd functions deploy admin-user-management --project-ref $testRef --use-api
+   if ($LASTEXITCODE -ne 0) { throw 'CSUPAK-TEST deployment failed.' }
+   & .\node_modules\.bin\supabase.cmd functions list --project-ref $testRef --output json
+   ```
+
+3. Confirm the function is active and `verify_jwt = true`. Restart the isolated frontend with `.\scripts\start-test.ps1`. Sign in at `http://127.0.0.1:8765` and run the checklist below with disposable TEST accounts and a reachable mailbox.
+
+### Consolidated browser checklist
+
+- **Authorization and display** Open Settings as an administrator, then as OSWE Staff and Security Office. Only the administrator should see the three management entries. Check keyboard navigation, Escape, focus return, narrow screens, and the system dark appearance. Confirm My Account and Password & Security still open normally.
+- **Roster** Verify name, email, role and all four status badges. Try mixed-case search, literal `%` and `_`, role and access filters, an empty result, Previous and Next with enough fixtures, and retry after going offline. Confirm a profileless Auth fixture is absent.
+- **Create and reconcile** Create one disposable Staff and one Security Office account. Verify no password prompt, the inactive setup state, and the email request feedback. Try an invalid or conflicting email and a double submit. Interrupt one request, reload, and resume its original operation from Add User. If it already reached the roster, inspect the setup email status there. A different administrator should see the pending state without the resend action or the other actor’s interrupted requests.
+- **Setup and activation** Confirm the pending account cannot activate or use the application. Resend setup with the original administrator, check cooldown, and open the email in another browser profile. Complete setup and verify **Awaiting activation**. Activate it through Roles & Access, sign in fresh, then deactivate and verify the **Deactivated** badge and old-session denial. Keep the only working administrator active. Use the existing disposable administrator fixtures for the last-admin safeguard test.
+- **Account edits and recovery** Edit a name and verify the roster refreshes. Change a disposable account’s role and verify fresh sign-in is required. Check that your own role/status and administrator promotion are unavailable. Request a password reset for a confirmed account. Verify cooldown, a consumed link, and successful sign-in with the new password. Check that recovery preserves role, access status and onboarding. If an email outcome is unknown, check the inbox and verify that the UI sends nothing automatically.
+- **Cleanup** Use the existing TEST fixture cleanup procedure for disposable accounts. Use fresh disposable addresses to repeat provisioning because reservation history is retained. Keep private roster output, recovery links, and audit identifiers out of shared logs.
+
+### Phase 3 TEST checkpoint
+
+- Migration `202611260001` was applied and both roster RPCs passed catalog verification. `admin-user-management` version 2 was `ACTIVE` with `verify_jwt = true`. The configured TEST origin received HTTP 204 on preflight. The unsigned onboarding roster request received HTTP 401.
+- The tester confirmed that the management dialogs opened, the authenticated roster displayed existing TEST accounts, and the consolidated browser run and UI corrections were complete. The completion report did not include individual results for every scenario in the checklist. The checklist remains the procedure for repeating those cases.
+- Chrome checked the running isolated frontend in both light and explicit dark modes, including form controls, placeholders, status text, borders and the dimmed backdrop. Opposite operating system preferences did not override the document theme. This Settings checkout has no theme selector, so the dark selection was set on the document for verification.
+- The tester confirmed that the disposable account was removed, the original CSUPAK-TEST baseline was restored, and audit receipts and provisioning history were preserved.
 
 ### Repeat deployment and expanded verification
 

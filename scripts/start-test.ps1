@@ -29,6 +29,7 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 $configPath = Join-Path $repoRoot '.csupak-test.local.json'
 $localUrl = 'http://127.0.0.1:8765/'
 $productionConfig = Join-Path $repoRoot 'js/supabase.js'
+$serverScript = Join-Path $PSScriptRoot 'test-frontend-server.py'
 $projectUrlPattern = '\Ahttps://(?<ref>[a-z0-9]{20})\.supabase\.co/?\z'
 
 function Get-TestPython {
@@ -120,13 +121,17 @@ try {
         return
     }
 
-    $siteItems = @('index.html', 'style.css', 'js', 'pages', 'src')
+    $siteItems = @('index.html', 'style.css', 'js', 'pages', 'src', 'css')
+    if (!(Test-Path -LiteralPath $serverScript -PathType Leaf)) {
+        throw 'Missing TEST server source file: scripts/test-frontend-server.py.'
+    }
     $requiredFiles = @(
         'index.html', 'style.css', 'js/supabase.js', 'js/login.js', 'js/auth.js',
         'js/settings.js', 'js/settings-security.js', 'pages/dashboard.html',
         'pages/settings.html', 'pages/account-setup.html', 'js/account-setup.mjs',
         'js/account-setup-flow.mjs', 'js/recovery-shared.mjs', 'js/forgot-password.mjs',
-        'js/password-recovery-flow.mjs', 'js/reset-password.mjs', 'pages/reset-password.html', 'src/output.css'
+        'js/password-recovery-flow.mjs', 'js/reset-password.mjs', 'pages/reset-password.html', 'src/output.css',
+        'js/user-management.mjs', 'js/user-management-model.mjs', 'css/user-management.css'
     )
     foreach ($file in $requiredFiles) {
         if (!(Test-Path -LiteralPath (Join-Path $repoRoot $file) -PathType Leaf)) {
@@ -196,6 +201,13 @@ try {
     foreach ($item in $siteItems) {
         Copy-Item -LiteralPath (Join-Path $repoRoot $item) -Destination $siteRoot -Recurse
     }
+    foreach ($file in $requiredFiles) {
+        $sourceHash = (Get-FileHash -LiteralPath (Join-Path $repoRoot $file)).Hash
+        $snapshotHash = (Get-FileHash -LiteralPath (Join-Path $siteRoot $file)).Hash
+        if ($sourceHash -cne $snapshotHash) {
+            throw "The TEST copy does not match the workspace for $file. Restart the launcher."
+        }
+    }
     $testConfigPath = Join-Path $siteRoot 'js/supabase.js'
     $clientConfig = [IO.File]::ReadAllText($testConfigPath)
     foreach ($entry in @(
@@ -214,7 +226,7 @@ try {
     Write-Host "Supabase project: $testUrl"
     Write-Host "Local website:    $localUrl"
     Write-Host 'Press Ctrl+C to stop.'
-    $arguments = $python.Arguments + @('-m', 'http.server', '8765', '--bind', '127.0.0.1', '--directory', $siteRoot)
+    $arguments = $python.Arguments + @($serverScript, '--directory', $siteRoot)
     & $python.Path @arguments
     if ($LASTEXITCODE -ne 0) {
         throw 'The local HTTP server exited with an error. Check whether another process is using port 8765.'

@@ -1,0 +1,85 @@
+.user-management-dialog {
+    --um-ink: var(--color-gray-900);
+    --um-muted: var(--color-gray-600);
+    --um-edge: var(--color-gray-300);
+    --um-field-edge: var(--color-gray-500);
+    --um-surface: var(--color-white);
+    --um-tint: var(--color-gray-50);
+    --um-accent: #006b21;
+    color-scheme: light;
+    color: var(--um-ink);
+    background: var(--um-surface);
+    border-color: var(--um-edge);
+}
+
+/* Follow the document's explicit theme. Settings defaults to light. */
+:root:is([data-theme="dark"], .dark:not([data-theme])) .user-management-dialog {
+    color-scheme: dark;
+    --um-ink: var(--color-gray-100);
+    --um-muted: var(--color-gray-300);
+    --um-edge: var(--color-gray-600);
+    --um-surface: var(--color-gray-900);
+    --um-tint: var(--color-gray-800);
+    --um-accent: var(--color-green-300);
+}
+
+.user-management-dialog [hidden] { display: none; }
+.user-management-dialog :focus-visible { outline: 2px solid var(--um-accent); outline-offset: 2px; }
+.user-management-dialog h3 { color: var(--um-accent); }
+.um-muted { color: var(--um-muted); font-size: .875rem; }
+.um-form { margin-top: 1rem; }
+.um-filters { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 10rem), 1fr)); gap: .75rem; align-items: end; }
+.um-form label, .um-filters label { display: block; font-size: .875rem; font-weight: 600; }
+.um-form input, .um-form select, .um-filters input, .um-filters select {
+    display: block;
+    width: 100%;
+    min-height: 2.6rem;
+    margin-top: .35rem;
+    padding: .5rem .7rem;
+    border: 1px solid var(--um-field-edge);
+    border-radius: .65rem;
+    background: var(--um-surface);
+    color: var(--um-ink);
+    font-weight: 400;
+}
+
+.user-management-dialog input::placeholder { color: var(--um-muted); opacity: 1; }
+
+.um-add-fields { align-items: start; }
+.um-button {
+    min-height: 2.6rem;
+    padding: .4rem .85rem;
+    border: 1px solid var(--um-edge);
+    border-radius: .65rem;
+    background: var(--um-surface);
+    color: var(--um-ink);
+    font-size: .875rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.um-button:hover:not(:disabled) { background: var(--um-tint); }
+.um-button:disabled { opacity: .55; cursor: default; }
+.um-primary { background: #006b21; border-color: #006b21; color: white; }
+.um-primary:hover:not(:disabled) { background: #005619; }
+.um-actions, .um-page-controls { display: flex; align-items: center; flex-wrap: wrap; gap: .6rem; margin-top: .75rem; }
+.um-page-controls { justify-content: space-between; font-size: .875rem; }
+.um-status { font-size: .875rem; margin: .75rem 0; }
+.um-status:empty { margin: 0; }
+.um-list:empty { display: none; }
+.um-list { border: 1px solid var(--um-edge); border-radius: .75rem; overflow: hidden; }
+.um-row { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(8rem, 1fr) minmax(8rem, 1fr) auto; align-items: center; gap: .65rem; padding: .75rem; }
+.um-row + .um-row { border-top: 1px solid var(--um-edge); }
+.um-row p, .um-target { overflow-wrap: anywhere; }
+.um-row-name { font-weight: 600; }
+.um-badge { display: inline-block; border-radius: .5rem; padding: .15rem .5rem; background: var(--um-tint); font-size: .8125rem; }
+.um-badge[data-state="active"] { color: var(--um-accent); font-weight: 600; }
+.um-interrupted { margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid var(--um-edge); }
+#userActionForm > label, #userActionDescription { margin-top: .75rem; }
+#userActionTarget { margin-top: .25rem; }
+
+@media (max-width: 52rem) {
+    .um-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .um-row > :first-child { grid-column: 1 / -1; }
+    .um-row .um-button { justify-self: start; }
+}

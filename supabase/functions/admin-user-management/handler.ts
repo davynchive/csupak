@@ -1,5 +1,5 @@
 import { accountAccessParams, applyAccountAccess } from "./account-access.ts";
-import { isRecord, isRosterPage, listParams, uuidPattern } from "./list-users.ts";
+import { interruptedParams, isInterruptedPage, isRecord, isRosterPage, listParams, uuidPattern } from "./list-users.ts";
 import { provisionAccount, ProvisioningError, provisioningRequest } from "./provisioning.ts";
 import { passwordRecoveryParams, requestPasswordReset } from "./password-recovery.ts";
 
@@ -15,7 +15,7 @@ type Environment = {
 const methods = "POST, OPTIONS";
 const requestHeaders = "authorization, apikey, content-type, x-client-info";
 const bearerPattern = /^Bearer ([\w-]+\.[\w-]+\.[\w-]+)$/i;
-type CallerRpc = "get_my_role" | "admin_list_users" | "admin_change_account_access" | "admin_update_user_name" |
+type CallerRpc = "get_my_role" | "admin_list_users" | "admin_list_users_with_onboarding" | "admin_list_my_interrupted_provisioning" | "admin_change_account_access" | "admin_update_user_name" |
     "admin_reserve_account_provisioning" | "admin_claim_provisioning_step" | "admin_claim_password_recovery";
 
 function readConfig(env: Environment) {
@@ -106,6 +106,7 @@ export function createHandler(env: Environment, fetcher: typeof fetch = fetch) {
         if (!isRecord(body)) return failure(headers, 400, "invalid_action");
         const { action } = body;
         const rosterParams = action === "list_users" ? listParams(body) : null;
+        const interrupted = action === "list_interrupted_provisioning" ? interruptedParams(body) : null;
         const accessAction = action === "change_role" || action === "set_status" || action === "update_name";
         const accessParams = accessAction
             ? accountAccessParams(body, action) : null;
@@ -115,8 +116,8 @@ export function createHandler(env: Environment, fetcher: typeof fetch = fetch) {
         const recoveryParams = recoveryAction ? passwordRecoveryParams(body) : null;
         if (action === "check_access") {
             if (Object.keys(body).length !== 1) return failure(headers, 400, "invalid_action");
-        } else if (!rosterParams && !accessParams && !provisioningParams && !recoveryParams) {
-            const knownAction = action === "list_users" || accessAction || provisioningAction || recoveryAction;
+        } else if (!rosterParams && !interrupted && !accessParams && !provisioningParams && !recoveryParams) {
+            const knownAction = action === "list_users" || action === "list_interrupted_provisioning" || accessAction || provisioningAction || recoveryAction;
             return failure(headers, 400, knownAction ? "invalid_parameters" : "invalid_action");
         }
 
@@ -159,9 +160,12 @@ export function createHandler(env: Environment, fetcher: typeof fetch = fetch) {
                     data: { operationId: accessParams.p_operation_id, outcome: result.outcome },
                 });
             }
-            if (!rosterParams) return json(headers, 200, { success: true, data: { authorized: true } });
+            if (!rosterParams && !interrupted) return json(headers, 200, { success: true, data: { authorized: true } });
 
-            const roster = await caller.rpc("admin_list_users", rosterParams);
+            const includeOnboarding = body.includeOnboarding === true;
+            const roster = rosterParams
+                ? await caller.rpc(includeOnboarding ? "admin_list_users_with_onboarding" : "admin_list_users", rosterParams)
+                : await caller.rpc("admin_list_my_interrupted_provisioning", interrupted!);
             if (!roster.ok) {
                 if (roster.status === 403 && (await roster.json())?.code === "42501") {
                     return failure(headers, 403, "access_denied");
@@ -169,7 +173,9 @@ export function createHandler(env: Environment, fetcher: typeof fetch = fetch) {
                 return failure(headers, 503, "service_unavailable");
             }
             const page: unknown = await roster.json();
-            if (!isRosterPage(page, rosterParams)) return failure(headers, 503, "service_unavailable");
+            if (rosterParams ? !isRosterPage(page, rosterParams, includeOnboarding) : !isInterruptedPage(page, interrupted!)) {
+                return failure(headers, 503, "service_unavailable");
+            }
             return json(headers, 200, { success: true, data: page });
         } catch (error) {
             if (error instanceof ProvisioningError) return failure(headers, error.status, error.code);

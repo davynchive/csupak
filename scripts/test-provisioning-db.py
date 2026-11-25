@@ -69,18 +69,22 @@ def main():
     phases = [FIXTURE + role_helper + policy]
     for file in (
         "202611250003_admin_account_safeguards.sql",
+        "202611250004_admin_list_users.sql",
         "202611250005_admin_update_user_name.sql",
         "202611250006_account_provisioning_foundation.sql",
         "202611250007_provisioning_completion.sql",
         "202611250008_account_setup_state.sql",
         "202611250009_admin_password_recovery.sql",
+        "202611260001_admin_user_management_views.sql",
     ):
         phases.append(source(MIGRATIONS / file))
     phases.append(source(ROOT / "database/docs/verify_provisioning_completion.sql"))
     phases.append(source(ROOT / "database/docs/verify_account_setup_state.sql"))
     phases.append(source(ROOT / "database/docs/verify_admin_password_recovery.sql"))
+    phases.append(source(ROOT / "database/docs/verify_admin_user_management_views.sql"))
     phases.append(source(ROOT / "database/tests/provisioning_completion.sql"))
     phases.append(source(ROOT / "database/tests/admin_password_recovery.sql"))
+    phases.append(source(ROOT / "database/tests/admin_user_management_views.sql"))
     # postgres --single -j uses a blank line as a statement terminator.
     sql = "".join(re.sub(r"\n(?:[ \t]*\n)+", "\n", phase.strip()) + "\n\n" for phase in phases)
 
@@ -96,10 +100,11 @@ def main():
         result = subprocess.run([postgres, "--single", "-j", "-D", data, "postgres"],
                                 input=sql, capture_output=True, text=True, timeout=60)
         log = result.stdout + result.stderr
-        markers = ('result = "PROVISIONING_TESTS_PASSED"', 'result = "PASSWORD_RECOVERY_TESTS_PASSED"')
+        markers = ('result = "PROVISIONING_TESTS_PASSED"', 'result = "PASSWORD_RECOVERY_TESTS_PASSED"',
+                   'result = "MANAGEMENT_VIEWS_TESTS_PASSED"')
         if result.returncode or re.search(r"\b(ERROR|FATAL|PANIC):", log) or any(marker not in log for marker in markers):
             raise SystemExit(result.stderr or log)
-        print("PASS provisioning and password recovery migrations, catalog verifiers, and local SQL assertions")
+        print("PASS provisioning, password recovery and management views, catalog verifiers, and local SQL assertions")
 
 
 if __name__ == "__main__":

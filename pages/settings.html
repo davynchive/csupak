@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CSUPAK | Settings</title>
     <link rel="stylesheet" href="../src/output.css">
+    <link rel="stylesheet" href="../css/user-management.css">
 </head>
 <body class="min-h-screen bg-[#F4F5F3] text-[#1F2933]">
     <aside class="flex flex-col bg-[#006B21] text-white md:fixed md:inset-y-0 md:left-0 md:w-56">
@@ -77,7 +78,7 @@
                 <section id="systemAdministration" aria-labelledby="systemAdministrationTitle" hidden>
                     <h3 id="systemAdministrationTitle" class="mb-4 text-xl font-bold text-gray-900">System Administration</h3>
                     <div class="divide-y divide-gray-100 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
-                        <button type="button" aria-haspopup="dialog" data-setting class="flex w-full cursor-pointer items-center gap-3 px-4 py-4 text-left hover:bg-gray-50 focus-visible:bg-gray-50 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[#006B21] sm:gap-4 sm:px-5">
+                        <button type="button" aria-haspopup="dialog" aria-controls="userManagementDialog" data-user-management="manage" class="flex w-full cursor-pointer items-center gap-3 px-4 py-4 text-left hover:bg-gray-50 focus-visible:bg-gray-50 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[#006B21] sm:gap-4 sm:px-5">
                             <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-green-50 text-[#006B21]">
                                 <svg aria-hidden="true" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
                                     <circle cx="9" cy="8" r="3"/>
@@ -85,13 +86,13 @@
                                 </svg>
                             </span>
                             <span class="flex-1">
-                                <span data-setting-title class="block text-sm font-semibold text-gray-900">Manage Users</span>
+                                <span class="block text-sm font-semibold text-gray-900">Manage Users</span>
                                 <span class="mt-1 block text-sm text-gray-500">View and edit existing user accounts.</span>
                             </span>
                             <svg aria-hidden="true" class="h-5 w-5 shrink-0 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
                         </button>
 
-                        <button type="button" aria-haspopup="dialog" data-setting class="flex w-full cursor-pointer items-center gap-3 px-4 py-4 text-left hover:bg-gray-50 focus-visible:bg-gray-50 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[#006B21] sm:gap-4 sm:px-5">
+                        <button type="button" aria-haspopup="dialog" aria-controls="userManagementDialog" data-user-management="add" class="flex w-full cursor-pointer items-center gap-3 px-4 py-4 text-left hover:bg-gray-50 focus-visible:bg-gray-50 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[#006B21] sm:gap-4 sm:px-5">
                             <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-green-50 text-[#006B21]">
                                 <svg aria-hidden="true" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
                                     <circle cx="9" cy="8" r="3"/>
@@ -99,13 +100,13 @@
                                 </svg>
                             </span>
                             <span class="flex-1">
-                                <span data-setting-title class="block text-sm font-semibold text-gray-900">Add User</span>
+                                <span class="block text-sm font-semibold text-gray-900">Add User</span>
                                 <span class="mt-1 block text-sm text-gray-500">Create a new user account.</span>
                             </span>
                             <svg aria-hidden="true" class="h-5 w-5 shrink-0 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
                         </button>
 
-                        <button type="button" aria-haspopup="dialog" data-setting class="flex w-full cursor-pointer items-center gap-3 px-4 py-4 text-left hover:bg-gray-50 focus-visible:bg-gray-50 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[#006B21] sm:gap-4 sm:px-5">
+                        <button type="button" aria-haspopup="dialog" aria-controls="userManagementDialog" data-user-management="roles" class="flex w-full cursor-pointer items-center gap-3 px-4 py-4 text-left hover:bg-gray-50 focus-visible:bg-gray-50 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[#006B21] sm:gap-4 sm:px-5">
                             <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-green-50 text-[#006B21]">
                                 <svg aria-hidden="true" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
                                     <path d="M12 22s7-3.5 7-10V5l-7-3-7 3v7c0 6.5 7 10 7 10Z"/>
@@ -113,7 +114,7 @@
                                 </svg>
                             </span>
                             <span class="flex-1">
-                                <span data-setting-title class="block text-sm font-semibold text-gray-900">Roles &amp; Access</span>
+                                <span class="block text-sm font-semibold text-gray-900">Roles &amp; Access</span>
                                 <span class="mt-1 block text-sm text-gray-500">Manage user roles and account status.</span>
                             </span>
                             <svg aria-hidden="true" class="h-5 w-5 shrink-0 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
@@ -227,12 +228,84 @@
         </div>
     </dialog>
 
-    <dialog id="settingNotice" aria-labelledby="settingNoticeTitle" aria-describedby="settingNoticeMessage" class="m-auto w-[calc(100%-2rem)] max-w-sm rounded-xl border border-gray-200 bg-white p-5 text-gray-900 shadow-lg backdrop:bg-black/40">
-        <h3 id="settingNoticeTitle" class="text-lg font-bold"></h3>
-        <p id="settingNoticeMessage" class="mt-2 text-sm text-gray-600">This setting will be available in a future update.</p>
-        <div class="mt-5 flex justify-end">
-            <button id="closeSettingNotice" type="button" autofocus class="rounded-lg bg-[#006B21] px-4 py-2 text-sm font-semibold text-white hover:bg-green-800">Close</button>
+    <dialog id="userManagementDialog" aria-labelledby="userManagementTitle" class="user-management-dialog m-auto max-h-[90dvh] w-[calc(100%-2rem)] max-w-5xl overflow-y-auto rounded-2xl border border-gray-200 bg-white p-5 text-gray-900 shadow-xl backdrop:bg-black/40 sm:p-6">
+        <div class="mb-5 flex items-center justify-between gap-4">
+            <h3 id="userManagementTitle" tabindex="-1" class="text-xl font-bold text-[#006B21]">Manage Users</h3>
+            <button id="closeUserManagement" type="button" class="um-button">Close</button>
         </div>
+        <section id="userRosterPanel" aria-label="User roster" hidden>
+            <form id="userRosterFilters" class="um-filters">
+                <label>Search <input name="search" type="search" maxlength="200" placeholder="Name or email"></label>
+                <label>Role <select name="role">
+                    <option value="">All roles</option>
+                    <option value="oswe_admin">OSWE Administrator</option>
+                    <option value="oswe_staff">OSWE Staff</option>
+                    <option value="security_office">Security Office</option>
+                </select></label>
+                <label>Access <select name="status">
+                    <option value="">All accounts</option>
+                    <option value="active">Active</option>
+                    <option value="inactive">Inactive, including onboarding</option>
+                </select></label>
+                <button type="submit" class="um-button um-primary">Apply filters</button>
+            </form>
+            <p id="userRosterStatus" class="um-status" role="status" aria-atomic="true"></p>
+            <button id="userRosterRetry" type="button" class="um-button" hidden>Retry</button>
+            <div id="userRosterResults" hidden>
+                <ul id="userRosterList" class="um-list" aria-label="Users"></ul>
+                <div class="um-page-controls">
+                    <button id="userRosterPrevious" type="button" class="um-button">Previous</button>
+                    <span id="userRosterPage"></span>
+                    <button id="userRosterNext" type="button" class="um-button">Next</button>
+                </div>
+            </div>
+        </section>
+        <section id="addUserPanel" aria-label="Add user" hidden>
+            <p class="um-muted">The recipient verifies their email and sets their own password. An administrator activates the account after setup is complete.</p>
+            <form id="addUserForm" class="um-form">
+                <div class="um-filters um-add-fields">
+                    <label>Full name <input name="fullName" autocomplete="off" required aria-describedby="addUserNameHint"><span id="addUserNameHint" class="um-muted">2?100 characters</span></label>
+                    <label>Email address <input name="email" type="email" maxlength="254" autocomplete="off" required></label>
+                    <label>Initial role <select name="role" required>
+                        <option value="">Choose a role</option>
+                        <option value="oswe_staff">OSWE Staff</option>
+                        <option value="security_office">Security Office</option>
+                    </select></label>
+                </div>
+                <p id="addUserStatus" class="um-status" role="status" aria-atomic="true"></p>
+                <div class="um-actions">
+                    <button id="createUserButton" type="submit" class="um-button um-primary">Create user and request setup email</button>
+                    <button id="resetAddUser" type="button" class="um-button" hidden>New user form</button>
+                    <button id="viewUsersAfterAdd" type="button" class="um-button" hidden>Open Manage Users</button>
+                </div>
+            </form>
+            <div class="um-interrupted">
+                <h4 class="text-sm font-semibold">Interrupted account requests</h4>
+                <p id="interruptedRequestsStatus" class="um-status" role="status" aria-atomic="true"></p>
+                <ul id="interruptedRequestsList" class="um-list" aria-label="Interrupted requests"></ul>
+                <div class="um-page-controls">
+                    <button id="interruptedPrevious" type="button" class="um-button" hidden>Previous</button>
+                    <button id="interruptedNext" type="button" class="um-button" hidden>Next</button>
+                    <button id="interruptedRetry" type="button" class="um-button" hidden>Retry</button>
+                </div>
+            </div>
+        </section>
+    </dialog>
+
+    <dialog id="userActionDialog" aria-labelledby="userActionTitle" aria-describedby="userActionDescription" class="user-management-dialog m-auto max-h-[90dvh] w-[calc(100%-2rem)] max-w-md overflow-y-auto rounded-2xl border border-gray-200 bg-white p-5 text-gray-900 shadow-xl backdrop:bg-black/40 sm:p-6">
+        <h3 id="userActionTitle" tabindex="-1" class="text-lg font-bold text-[#006B21]">Account actions</h3>
+        <p id="userActionTarget" class="um-muted um-target"></p>
+        <form id="userActionForm" class="um-form">
+            <label>Action <select name="action"></select></label>
+            <p id="userActionDescription" class="um-muted"></p>
+            <label id="userActionNameField" hidden>New full name <input name="fullName" autocomplete="off"></label>
+            <label id="userActionRoleField" hidden>New role <select name="role"></select></label>
+            <p id="userActionStatus" class="um-status" role="status" aria-atomic="true"></p>
+            <div class="um-actions">
+                <button id="cancelUserAction" type="button" class="um-button" autofocus>Cancel</button>
+                <button id="confirmUserAction" type="submit" class="um-button um-primary">Confirm</button>
+            </div>
+        </form>
     </dialog>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.119.2"></script>
@@ -240,5 +313,6 @@
     <script src="../js/auth.js"></script>
     <script src="../js/settings.js"></script>
     <script src="../js/settings-security.js"></script>
+    <script type="module" src="../js/user-management.mjs"></script>
 </body>
 </html>
