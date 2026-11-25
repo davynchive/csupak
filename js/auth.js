@@ -61,8 +61,8 @@ async function getCurrentUser() {
     try { return requireUserResult(await supabaseClient.auth.getUser()); }
     catch (error) { showPageStatus(safeNetworkMessage(error)); return null; }
 }
-async function getCurrentProfile() {
-    const user = await getCurrentUser();
+async function getCurrentProfile(user = null) {
+    user ??= await getCurrentUser();
     if (!user) return null;
     try {
         const result = await supabaseClient.from("profiles").select("full_name, role").eq("id", user.id).single();

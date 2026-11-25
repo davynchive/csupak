@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CSUPAK | Settings</title>
+    <link rel="stylesheet" href="../src/output.css">
+</head>
+<body class="min-h-screen bg-[#F4F5F3] text-[#1F2933]">
+    <aside class="flex flex-col bg-[#006B21] text-white md:fixed md:inset-y-0 md:left-0 md:w-56">
+        <div class="border-b border-white/15 px-6 py-5">
+            <h1 class="text-2xl font-extrabold tracking-tight">CSUPAK</h1>
+            <p class="mt-0.5 text-[11.5px] text-green-100">Student Violation Tracking System</p>
+        </div>
+
+        <nav aria-label="Main navigation" class="grid flex-1 grid-cols-2 gap-x-1 px-3 py-3 md:block md:overflow-y-auto md:py-5">
+            <a href="dashboard.html" class="mb-1 flex items-center rounded-lg px-4 py-2.5 text-sm font-medium text-green-50 hover:bg-white/10">Dashboard</a>
+            <a href="record-violation.html" class="mb-1 flex items-center rounded-lg px-4 py-2.5 text-sm font-medium text-green-50 hover:bg-white/10">Record Violation</a>
+            <a href="violations.html" class="mb-1 flex items-center rounded-lg px-4 py-2.5 text-sm font-medium text-green-50 hover:bg-white/10">Violations</a>
+            <a href="history.html" class="mb-1 flex items-center rounded-lg px-4 py-2.5 text-sm font-medium text-green-50 hover:bg-white/10">History</a>
+            <a id="complaintsNav" href="complaints.html" class="hidden mb-1 flex items-center rounded-lg px-4 py-2.5 text-sm font-medium text-green-50 hover:bg-white/10">Add Complaint</a>
+            <a id="complaintTrackingNav" href="complaint-tracking.html" class="hidden mb-1 flex items-center rounded-lg px-4 py-2.5 text-sm font-medium text-green-50 hover:bg-white/10">Complaint Tracking</a>
+            <a id="interviewTrackingNav" href="call-slips.html" class="hidden mb-1 flex items-center rounded-lg px-4 py-2.5 text-sm font-medium text-green-50 hover:bg-white/10">Interview Tracking</a>
+
+            <div class="col-span-2 my-2 border-t border-white/15 md:my-5"></div>
+
+            <a href="settings.html" aria-current="page" class="col-span-2 flex items-center rounded-lg bg-white/15 px-4 py-2.5 text-sm font-semibold">Settings</a>
+        </nav>
+
+        <div class="border-t border-white/15 p-3">
+            <button id="logoutButton" type="button" class="w-full rounded-lg px-4 py-2.5 text-left text-sm font-medium text-green-50 hover:bg-white/10">Logout</button>
+        </div>
+    </aside>
+
+    <main class="min-h-screen md:ml-56">
+        <header class="border-b border-gray-200 bg-white px-4 py-5 sm:px-8">
+            <h2 class="text-2xl font-bold tracking-tight text-[#006B21]">Settings</h2>
+        </header>
+
+        <div class="px-4 py-7 sm:px-8">
+            <p id="pageReliabilityStatus" role="status" class="mb-7 rounded-lg bg-gray-50 px-4 py-3 text-sm text-gray-700">Loading settings…</p>
+
+            <div class="grid grid-cols-1 items-start gap-7 lg:auto-cols-fr lg:grid-flow-col">
+                <section id="personalSettings" aria-labelledby="personalSettingsTitle" hidden>
+                    <h3 id="personalSettingsTitle" class="mb-4 text-xl font-bold text-gray-900">Personal Settings</h3>
+                    <div class="divide-y divide-gray-100 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+                        <button id="openMyAccount" type="button" aria-haspopup="dialog" aria-controls="myAccountDialog" class="flex w-full cursor-pointer items-center gap-3 px-4 py-4 text-left hover:bg-gray-50 focus-visible:bg-gray-50 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[#006B21] sm:gap-4 sm:px-5">
+                            <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-green-50 text-[#006B21]">
+                                <svg aria-hidden="true" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                                    <circle cx="12" cy="8" r="3"/>
+                                    <path d="M5 20v-1a5 5 0 0 1 5-5h4a5 5 0 0 1 5 5v1"/>
+                                </svg>
+                            </span>
+                            <span class="flex-1">
+                                <span class="block text-sm font-semibold text-gray-900">My Account</span>
+                                <span class="mt-1 block text-sm text-gray-500">View and update your personal information.</span>
+                            </span>
+                            <svg aria-hidden="true" class="h-5 w-5 shrink-0 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+                        </button>
+
+                        <button id="openSecurity" type="button" aria-haspopup="dialog" aria-controls="securityDialog" class="flex w-full cursor-pointer items-center gap-3 px-4 py-4 text-left hover:bg-gray-50 focus-visible:bg-gray-50 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[#006B21] sm:gap-4 sm:px-5">
+                            <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-green-50 text-[#006B21]">
+                                <svg aria-hidden="true" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                                    <rect x="5" y="10" width="14" height="11" rx="2"/>
+                                    <path d="M8 10V7a4 4 0 1 1 8 0v3m-4 5v2"/>
+                                </svg>
+                            </span>
+                            <span class="flex-1">
+                                <span class="block text-sm font-semibold text-gray-900">Password &amp; Security</span>
+                                <span class="mt-1 block text-sm text-gray-500">Manage your email address and password.</span>
+                            </span>
+                            <svg aria-hidden="true" class="h-5 w-5 shrink-0 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+                        </button>
+                    </div>
+                </section>
+
+                <section id="systemAdministration" aria-labelledby="systemAdministrationTitle" hidden>
+                    <h3 id="systemAdministrationTitle" class="mb-4 text-xl font-bold text-gray-900">System Administration</h3>
+                    <div class="divide-y divide-gray-100 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+                        <button type="button" aria-haspopup="dialog" data-setting class="flex w-full cursor-pointer items-center gap-3 px-4 py-4 text-left hover:bg-gray-50 focus-visible:bg-gray-50 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[#006B21] sm:gap-4 sm:px-5">
+                            <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-green-50 text-[#006B21]">
+                                <svg aria-hidden="true" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                                    <circle cx="9" cy="8" r="3"/>
+                                    <path d="M2 20v-1a5 5 0 0 1 5-5h4a5 5 0 0 1 5 5v1M16 5a3 3 0 0 1 0 6m3 3.5a5 5 0 0 1 3 4.5v1"/>
+                                </svg>
+                            </span>
+                            <span class="flex-1">
+                                <span data-setting-title class="block text-sm font-semibold text-gray-900">Manage Users</span>
+                                <span class="mt-1 block text-sm text-gray-500">View and edit existing user accounts.</span>
+                            </span>
+                            <svg aria-hidden="true" class="h-5 w-5 shrink-0 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+                        </button>
+
+                        <button type="button" aria-haspopup="dialog" data-setting class="flex w-full cursor-pointer items-center gap-3 px-4 py-4 text-left hover:bg-gray-50 focus-visible:bg-gray-50 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[#006B21] sm:gap-4 sm:px-5">
+                            <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-green-50 text-[#006B21]">
+                                <svg aria-hidden="true" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                                    <circle cx="9" cy="8" r="3"/>
+                                    <path d="M2 20v-1a5 5 0 0 1 5-5h4a5 5 0 0 1 5 5v1m3-13v6m-3-3h6"/>
+                                </svg>
+                            </span>
+                            <span class="flex-1">
+                                <span data-setting-title class="block text-sm font-semibold text-gray-900">Add User</span>
+                                <span class="mt-1 block text-sm text-gray-500">Create a new user account.</span>
+                            </span>
+                            <svg aria-hidden="true" class="h-5 w-5 shrink-0 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+                        </button>
+
+                        <button type="button" aria-haspopup="dialog" data-setting class="flex w-full cursor-pointer items-center gap-3 px-4 py-4 text-left hover:bg-gray-50 focus-visible:bg-gray-50 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[#006B21] sm:gap-4 sm:px-5">
+                            <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-green-50 text-[#006B21]">
+                                <svg aria-hidden="true" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M12 22s7-3.5 7-10V5l-7-3-7 3v7c0 6.5 7 10 7 10Z"/>
+                                    <path d="m9 12 2 2 4-4"/>
+                                </svg>
+                            </span>
+                            <span class="flex-1">
+                                <span data-setting-title class="block text-sm font-semibold text-gray-900">Roles &amp; Access</span>
+                                <span class="mt-1 block text-sm text-gray-500">Manage user roles and account status.</span>
+                            </span>
+                            <svg aria-hidden="true" class="h-5 w-5 shrink-0 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+                        </button>
+                    </div>
+                </section>
+            </div>
+        </div>
+    </main>
+
+    <dialog id="myAccountDialog" aria-labelledby="myAccountTitle" class="m-auto max-h-[90dvh] w-[calc(100%-2rem)] max-w-md overflow-y-auto rounded-2xl border border-gray-200 bg-white p-5 text-gray-900 shadow-xl backdrop:bg-black/40 sm:p-6">
+        <div class="mb-5 flex items-center justify-between gap-4">
+            <h3 id="myAccountTitle" class="text-lg font-bold text-[#006B21]">My Account</h3>
+            <button id="closeMyAccount" type="button" aria-label="Close My Account" class="rounded-lg p-2 text-gray-500 hover:bg-gray-50 hover:text-gray-900">
+                <svg aria-hidden="true" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="m6 6 12 12M18 6 6 18"/></svg>
+            </button>
+        </div>
+
+        <form id="myAccountForm">
+            <div class="space-y-4">
+                <div>
+                    <label for="accountFullName" class="mb-2 block text-sm font-semibold">Full name</label>
+                    <input id="accountFullName" type="text" autocomplete="name" aria-describedby="accountNameHint" required autofocus class="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm focus-visible:outline-2 focus-visible:outline-[#006B21]">
+                    <p id="accountNameHint" class="mt-1 text-sm text-gray-500">Enter 2–100 characters.</p>
+                </div>
+                <div>
+                    <label for="accountEmail" class="mb-2 block text-sm font-semibold">Email address</label>
+                    <input id="accountEmail" type="text" readonly class="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+                </div>
+                <div>
+                    <label for="accountRole" class="mb-2 block text-sm font-semibold">Assigned role</label>
+                    <input id="accountRole" type="text" readonly class="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+                </div>
+            </div>
+
+            <p id="accountSaveStatus" role="status" aria-atomic="true" class="mt-3 text-sm text-gray-700"></p>
+            <a id="accountSignIn" href="../index.html" hidden class="text-sm font-semibold text-[#006B21] underline">Sign in again</a>
+
+            <div class="mt-5 flex flex-wrap justify-end gap-3">
+                <button id="cancelMyAccount" type="button" class="rounded-xl border border-gray-300 px-4 py-2.5 text-sm hover:bg-gray-50 disabled:opacity-50">Cancel</button>
+                <button id="saveMyAccount" type="submit" disabled class="rounded-xl bg-[#006B21] px-4 py-2.5 text-sm font-semibold text-white hover:bg-green-800 disabled:cursor-not-allowed disabled:opacity-50">Save Changes</button>
+            </div>
+        </form>
+    </dialog>
+
+    <dialog id="securityDialog" aria-labelledby="securityTitle" class="m-auto max-h-[90dvh] w-[calc(100%-2rem)] max-w-3xl overflow-y-auto rounded-2xl border border-gray-200 bg-white p-5 text-gray-900 shadow-xl backdrop:bg-black/40 sm:p-6">
+        <div class="mb-5 flex items-center justify-between gap-4">
+            <h3 id="securityTitle" class="text-lg font-bold text-[#006B21]">Password &amp; Security</h3>
+            <button id="closeSecurity" type="button" aria-label="Close Password &amp; Security" class="rounded-lg p-2 text-gray-500 hover:bg-gray-50 hover:text-gray-900">
+                <svg aria-hidden="true" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"><path d="m6 6 12 12M18 6 6 18"/></svg>
+            </button>
+        </div>
+
+        <p id="securityAccountStatus" role="status" aria-atomic="true" class="text-sm text-gray-700"></p>
+        <a id="securitySignIn" href="../index.html" hidden class="mb-4 inline-block text-sm font-semibold text-[#006B21] underline">Sign in again</a>
+
+        <div class="grid items-start gap-5 sm:grid-cols-2">
+            <form id="changeEmailForm" aria-labelledby="changeEmailTitle" novalidate class="rounded-xl border border-gray-200 p-4">
+                <h4 id="changeEmailTitle" class="mb-4 font-bold">Change Email Address</h4>
+                <div class="space-y-4">
+                    <div>
+                        <label for="securityCurrentEmail" class="mb-2 block text-sm font-semibold">Current email address</label>
+                        <input id="securityCurrentEmail" type="email" readonly class="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm text-gray-600">
+                    </div>
+                    <div>
+                        <label for="securityNewEmail" class="mb-2 block text-sm font-semibold">New email address</label>
+                        <input id="securityNewEmail" type="email" autocomplete="email" aria-describedby="securityEmailHint" required class="w-full rounded-xl border border-gray-300 px-3 py-2.5 text-sm focus-visible:outline-2 focus-visible:outline-[#006B21]">
+                        <p id="securityEmailHint" class="mt-2 text-sm text-gray-500">Your email address changes after you complete the required email confirmations.</p>
+                    </div>
+                </div>
+
+                <p id="emailChangeStatus" role="status" aria-atomic="true" class="mt-3 text-sm text-gray-700"></p>
+                <button id="updateEmail" type="submit" disabled class="mt-4 rounded-xl bg-[#006B21] px-4 py-2.5 text-sm font-semibold text-white hover:bg-green-800 disabled:cursor-not-allowed disabled:opacity-50">Update Email</button>
+            </form>
+
+            <form id="changePasswordForm" aria-labelledby="changePasswordTitle" novalidate class="rounded-xl border border-gray-200 p-4">
+                <h4 id="changePasswordTitle" class="mb-4 font-bold">Change Password</h4>
+                <div class="space-y-4">
+                    <div>
+                        <label for="passwordCurrentPassword" class="block text-sm font-semibold">Current password</label>
+                        <div class="mt-2 flex gap-2">
+                            <input id="passwordCurrentPassword" type="password" autocomplete="current-password" required class="min-w-0 flex-1 rounded-xl border border-gray-300 px-3 py-2.5 text-sm focus-visible:outline-2 focus-visible:outline-[#006B21]">
+                            <button type="button" data-password-toggle="passwordCurrentPassword" aria-controls="passwordCurrentPassword" aria-label="Show current password" class="rounded-lg px-3 text-sm font-semibold text-[#006B21] hover:bg-green-50">Show</button>
+                        </div>
+                    </div>
+                    <div>
+                        <label for="securityNewPassword" class="block text-sm font-semibold">New password</label>
+                        <div class="mt-2 flex gap-2">
+                            <input id="securityNewPassword" type="password" aria-describedby="securityPasswordHint" autocomplete="new-password" required class="min-w-0 flex-1 rounded-xl border border-gray-300 px-3 py-2.5 text-sm focus-visible:outline-2 focus-visible:outline-[#006B21]">
+                            <button type="button" data-password-toggle="securityNewPassword" aria-controls="securityNewPassword" aria-label="Show new password" class="rounded-lg px-3 text-sm font-semibold text-[#006B21] hover:bg-green-50">Show</button>
+                        </div>
+                    </div>
+                    <p id="securityPasswordHint" class="text-sm text-gray-500">Use at least 8 characters. Your account may require a stronger password.</p>
+                    <div>
+                        <label for="securityConfirmPassword" class="block text-sm font-semibold">Confirm new password</label>
+                        <div class="mt-2 flex gap-2">
+                            <input id="securityConfirmPassword" type="password" autocomplete="new-password" required class="min-w-0 flex-1 rounded-xl border border-gray-300 px-3 py-2.5 text-sm focus-visible:outline-2 focus-visible:outline-[#006B21]">
+                            <button type="button" data-password-toggle="securityConfirmPassword" aria-controls="securityConfirmPassword" aria-label="Show confirm new password" class="rounded-lg px-3 text-sm font-semibold text-[#006B21] hover:bg-green-50">Show</button>
+                        </div>
+                    </div>
+                    <div id="securityReauthentication" hidden>
+                        <label for="securityNonce" class="mb-2 block text-sm font-semibold">Verification code</label>
+                        <input id="securityNonce" type="text" inputmode="numeric" autocomplete="one-time-code" class="w-full rounded-xl border border-gray-300 px-3 py-2.5 text-sm focus-visible:outline-2 focus-visible:outline-[#006B21]">
+                        <button id="sendSecurityNonce" type="button" class="mt-2 rounded-lg px-3 py-2 text-sm font-semibold text-[#006B21] hover:bg-green-50 disabled:opacity-50">Send verification code</button>
+                    </div>
+                </div>
+
+                <p id="passwordChangeStatus" role="status" aria-atomic="true" class="mt-3 text-sm text-gray-700"></p>
+                <button id="updatePassword" type="submit" disabled class="mt-4 rounded-xl bg-[#006B21] px-4 py-2.5 text-sm font-semibold text-white hover:bg-green-800 disabled:cursor-not-allowed disabled:opacity-50">Update Password</button>
+            </form>
+        </div>
+    </dialog>
+
+    <dialog id="settingNotice" aria-labelledby="settingNoticeTitle" aria-describedby="settingNoticeMessage" class="m-auto w-[calc(100%-2rem)] max-w-sm rounded-xl border border-gray-200 bg-white p-5 text-gray-900 shadow-lg backdrop:bg-black/40">
+        <h3 id="settingNoticeTitle" class="text-lg font-bold"></h3>
+        <p id="settingNoticeMessage" class="mt-2 text-sm text-gray-600">This setting will be available in a future update.</p>
+        <div class="mt-5 flex justify-end">
+            <button id="closeSettingNotice" type="button" autofocus class="rounded-lg bg-[#006B21] px-4 py-2 text-sm font-semibold text-white hover:bg-green-800">Close</button>
+        </div>
+    </dialog>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.119.2"></script>
+    <script src="../js/supabase.js"></script>
+    <script src="../js/auth.js"></script>
+    <script src="../js/settings.js"></script>
+    <script src="../js/settings-security.js"></script>
+</body>
+</html>
