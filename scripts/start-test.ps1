@@ -124,7 +124,9 @@ try {
     $requiredFiles = @(
         'index.html', 'style.css', 'js/supabase.js', 'js/login.js', 'js/auth.js',
         'js/settings.js', 'js/settings-security.js', 'pages/dashboard.html',
-        'pages/settings.html', 'src/output.css'
+        'pages/settings.html', 'pages/account-setup.html', 'js/account-setup.mjs',
+        'js/account-setup-flow.mjs', 'js/recovery-shared.mjs', 'js/forgot-password.mjs',
+        'js/password-recovery-flow.mjs', 'js/reset-password.mjs', 'pages/reset-password.html', 'src/output.css'
     )
     foreach ($file in $requiredFiles) {
         if (!(Test-Path -LiteralPath (Join-Path $repoRoot $file) -PathType Leaf)) {
@@ -194,12 +196,19 @@ try {
     foreach ($item in $siteItems) {
         Copy-Item -LiteralPath (Join-Path $repoRoot $item) -Destination $siteRoot -Recurse
     }
-    $clientConfig = @"
-const supabaseUrl = "$testUrl";
-const supabaseKey = "$($config.publishableKey)";
-const supabaseClient = window.supabase.createClient(supabaseUrl, supabaseKey);
-"@
-    [IO.File]::WriteAllText((Join-Path $siteRoot 'js/supabase.js'), $clientConfig)
+    $testConfigPath = Join-Path $siteRoot 'js/supabase.js'
+    $clientConfig = [IO.File]::ReadAllText($testConfigPath)
+    foreach ($entry in @(
+        @{ Name = 'supabaseUrl'; Value = $testUrl },
+        @{ Name = 'supabaseKey'; Value = $config.publishableKey }
+    )) {
+        $declaration = [regex]::new('(?m)^const\s+' + $entry.Name + '\s*=\s*["''][^"''\r\n]+["''];')
+        if ($declaration.Matches($clientConfig).Count -ne 1) {
+            throw 'Could not replace the frontend configuration safely. TEST startup was stopped.'
+        }
+        $clientConfig = $declaration.Replace($clientConfig, ('const {0} = "{1}";' -f $entry.Name, $entry.Value), 1)
+    }
+    [IO.File]::WriteAllText($testConfigPath, $clientConfig)
 
     Write-Host 'CSUPAK-TEST mode'
     Write-Host "Supabase project: $testUrl"

@@ -126,6 +126,14 @@
 
                     </form>
 
+                    <button id="forgot-password" type="button" aria-controls="forgot-password-form" aria-expanded="false" class="mt-4 text-sm font-semibold text-[#006B21] hover:underline">Forgot Password?</button>
+                    <form id="forgot-password-form" class="mt-4 space-y-5" hidden>
+                        <label for="forgot-password-email" class="mb-2 block text-sm font-semibold text-gray-700">Email for password recovery</label>
+                        <input id="forgot-password-email" type="email" autocomplete="email" maxlength="254" required class="w-full rounded-lg border border-gray-300 bg-gray-50 px-4 py-3 text-gray-800 outline-none transition focus:border-[#006B21] focus:bg-white focus:ring-2 focus:ring-green-100">
+                        <button type="submit" class="w-full rounded-lg bg-[#006B21] px-4 py-3.5 font-semibold text-white shadow-sm transition hover:bg-[#005619]">Send reset email</button>
+                        <p id="forgot-password-status" class="text-sm text-gray-700" role="status" aria-live="polite"></p>
+                    </form>
+
                     <div class="mt-8 border-t border-gray-200 pt-5">
                         <p class="text-center text-xs text-gray-400">
                             Authorized personnel only
@@ -143,6 +151,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="js/supabase.js"></script>
     <script src="js/login.js"></script>
+    <script type="module" src="js/forgot-password.mjs"></script>
 
 </body>
 </html>

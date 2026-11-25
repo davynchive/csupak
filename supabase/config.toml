@@ -1,0 +1,4 @@
+project_id = "csupak"
+
+[functions.admin-user-management]
+verify_jwt = true
