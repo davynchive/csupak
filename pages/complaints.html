@@ -15,6 +15,40 @@
         rel="stylesheet"
         href="../src/output.css"
     >
+    <style>
+        #complaineeIncidentRow {
+            display: grid;
+            grid-column: 1 / -1;
+            grid-template-columns: minmax(0, 1fr);
+            gap: 1.25rem;
+        }
+
+        #complaineeIncidentRow > * {
+            min-width: 0;
+        }
+
+        @media (min-width: 1024px) {
+            #complaineeIncidentRow {
+                grid-template-columns: repeat(12, minmax(0, 1fr));
+            }
+
+            #complaineeWhenField {
+                grid-column: span 3;
+            }
+
+            #complaineeProgramField {
+                grid-column: span 9;
+            }
+
+            #complaineeIncidentRow.has-external #complaineeProgramField {
+                grid-column: span 4;
+            }
+
+            #complaineeIncidentRow.has-external #complaineeExternalAffiliationField {
+                grid-column: span 5;
+            }
+        }
+    </style>
 </head>
 
 
@@ -103,7 +137,7 @@
 
 
             <a
-                href="#"
+                href="settings.html"
                 class="flex items-center rounded-lg px-4 py-2.5 text-sm font-medium text-green-50 hover:bg-white/10"
             >
                 Settings
@@ -313,22 +347,61 @@
                         </div>
 
 
-                        <div>
+                        <div id="complaineeIncidentRow">
+                            <div id="complaineeWhenField">
+                                <label
+                                    for="incidentDatetime"
+                                    class="mb-2 block text-sm font-semibold text-gray-700"
+                                >
+                                    When
+                                </label>
 
-                            <label
-                                for="incidentDatetime"
-                                class="mb-2 block text-sm font-semibold text-gray-700"
-                            >
-                                When
-                            </label>
-
-                            <input
-                                id="incidentDatetime"
+                                <input
+                                    id="incidentDatetime"
                                     required
-                                type="datetime-local"
-                                class="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm outline-none focus:border-[#006B21] focus:ring-2 focus:ring-green-100"
-                            >
+                                    type="datetime-local"
+                                    class="w-full min-w-0 rounded-xl border border-gray-300 px-4 py-3 text-sm outline-none focus:border-[#006B21] focus:ring-2 focus:ring-green-100"
+                                >
+                            </div>
 
+                            <div id="complaineeProgramField">
+                                <label
+                                    for="complaineeProgram"
+                                    class="mb-2 block text-sm font-semibold text-gray-700"
+                                >
+                                    Program <span class="text-red-500">*</span>
+                                </label>
+
+                                <select
+                                    id="complaineeProgram"
+                                    required
+                                    disabled
+                                    class="w-full min-w-0 rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm outline-none focus:border-[#006B21] focus:ring-2 focus:ring-green-100"
+                                >
+                                    <option value="">Loading programs...</option>
+                                </select>
+                            </div>
+
+                            <div id="complaineeExternalAffiliationField" class="hidden">
+                                <label
+                                    for="complaineeExternalAffiliation"
+                                    class="mb-2 block text-sm font-semibold text-gray-700"
+                                >
+                                    Organization or Origin <span class="text-red-500">*</span>
+                                </label>
+
+                                <input
+                                    id="complaineeExternalAffiliation"
+                                    type="text"
+                                    pattern=".*\S.*"
+                                    placeholder="Enter organization or origin"
+                                    aria-describedby="complaineeExternalAffiliationHelp"
+                                    class="w-full min-w-0 rounded-xl border border-gray-300 px-4 py-3 text-sm outline-none focus:border-[#006B21] focus:ring-2 focus:ring-green-100"
+                                >
+                                <p id="complaineeExternalAffiliationHelp" class="mt-2 text-xs text-gray-500">
+                                    Enter the person's organization or origin.
+                                </p>
+                            </div>
                         </div>
 
 
@@ -449,7 +522,7 @@
                                     for="complainantCourseId"
                                     class="mb-2 block text-sm font-semibold text-gray-700"
                                 >
-                                    Course
+                                    Program
                                 </label>
 
                                 <select
@@ -457,7 +530,7 @@
                                     disabled
                                     class="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm outline-none focus:border-[#006B21] focus:ring-2 focus:ring-green-100"
                                 >
-                                    <option value="">Loading courses...</option>
+                                    <option value="">Loading programs...</option>
                                 </select>
 
                             </div>

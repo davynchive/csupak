@@ -456,6 +456,10 @@ async function loadActiveSemester() {
     activeSemester =
         result.data;
 
+    const academicYear = document.getElementById("dashboardAcademicYear");
+    const yearRange = activeSemester?.name?.match(/\b(\d{4})\s*[-–—]\s*(\d{4})\b/);
+    if (academicYear) academicYear.textContent = yearRange ? `SY ${yearRange[1]}–${yearRange[2]}` : "—";
+
 
     if (
         activeSemester &&
@@ -1278,7 +1282,7 @@ function renderRecentRecords() {
 
 
     const records =
-        allViolations.slice(
+        monthlyViolations.slice(
             0,
             5
         );
@@ -1291,7 +1295,7 @@ function renderRecentRecords() {
         recentRecords.innerHTML =
             "<div class=\"rounded-xl bg-gray-50 px-4 py-8 text-center\">" +
                 "<p class=\"text-sm text-gray-500\">" +
-                    "No recent violation records." +
+                    "No violation records for this month." +
                 "</p>" +
             "</div>";
 
@@ -2123,7 +2127,9 @@ function canGenerateReport() {
 }
 
 function populateReportPeriods(violations) {
+    const current = getManilaPeriod(new Date());
     const periods = new Set(violations.map(violation => getManilaPeriod(violation.date_time)));
+    periods.add(current);
     const start = getManilaPeriod(activeSemester.start_date);
     const end = getManilaPeriod(activeSemester.end_date);
     if (start && end && start <= end) {
@@ -2134,7 +2140,6 @@ function populateReportPeriods(violations) {
             if (++month > 12) { month = 1; year++; }
         }
     }
-    if (!periods.size) throw new Error("No valid report period is available for the active semester.");
     const choices = Array.from(periods).sort();
     reportMonth.replaceChildren();
     for (const period of choices) {
@@ -2145,10 +2150,7 @@ function populateReportPeriods(violations) {
         }).format(new Date(period + "-15T00:00:00Z"));
         reportMonth.appendChild(option);
     }
-    let saved = null;
-    try { saved = localStorage.getItem("csupakReportPeriod"); } catch (_) { /* Storage may be disabled. */ }
-    const current = getManilaPeriod(new Date());
-    reportMonth.value = periods.has(saved) ? saved : periods.has(current) ? current : choices[choices.length - 1];
+    reportMonth.value = current;
 }
 
 
@@ -2161,11 +2163,6 @@ if (reportMonth) {
     reportMonth.addEventListener(
         "change",
         function () {
-
-            try {
-                localStorage.setItem("csupakReportPeriod", reportMonth.value);
-            } catch (_) { /* Reporting remains usable without persistent storage. */ }
-
 
             renderDashboard();
         }

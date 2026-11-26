@@ -152,6 +152,11 @@ const complainantStudentId =
     );
 
 const complainantCourseId = document.getElementById("complainantCourseId");
+const complaineeProgram = document.getElementById("complaineeProgram");
+const complaineeIncidentRow = document.getElementById("complaineeIncidentRow");
+const complaineeExternalAffiliationField = document.getElementById("complaineeExternalAffiliationField");
+const complaineeExternalAffiliation = document.getElementById("complaineeExternalAffiliation");
+const OTHERS_PROGRAM_VALUE = "__others__";
 
 const complainantYearLevel = document.getElementById("complainantYearLevel");
 
@@ -368,11 +373,26 @@ function validateCallSlipFields() {
     return true;
 }
 
+function updateComplaineeAffiliationField() {
+    const isOthers = complaineeProgram.value === OTHERS_PROGRAM_VALUE;
+    const retry = savedComplaintId !== null;
+
+    complaineeExternalAffiliationField.classList.toggle("hidden", !isOthers);
+    complaineeIncidentRow.classList.toggle("has-external", isOthers);
+    complaineeExternalAffiliation.required = isOthers;
+    complaineeExternalAffiliation.disabled = isSavingComplaint || retry || !isOthers;
+
+    if (!isOthers) {
+        complaineeExternalAffiliation.value = "";
+        complaineeExternalAffiliation.setCustomValidity("");
+    }
+}
+
 function updateComplaintFormState() {
     const retry = savedComplaintId !== null;
     [whatHappened, whoInvolved, incidentDatetime, locationInput, howHappened,
         otherDetails, complainantName, complainantStudentId, complainantYearLevel, complainantCourseId,
-        complainantCellphone, complainantResidenceTel, complainantAddress, dateReported]
+        complaineeProgram, complainantCellphone, complainantResidenceTel, complainantAddress, dateReported]
         .forEach(field => { field.disabled = isSavingComplaint || retry; });
     [callStudentName, callCourseYear, callDate, callNumber, scheduleType,
         scheduledDate, scheduledTime, callRemarks].forEach(field => { field.disabled = isSavingComplaint; });
@@ -382,6 +402,8 @@ function updateComplaintFormState() {
     }
     if (callSlipFields) callSlipFields.classList.toggle("hidden", !(retry || (addCallSlipCheckbox && addCallSlipCheckbox.checked)));
     complainantCourseId.disabled = isSavingComplaint || retry || !complaintCoursesReady;
+    complaineeProgram.disabled = isSavingComplaint || retry || !complaintCoursesReady;
+    updateComplaineeAffiliationField();
     submitComplaintButton.disabled = isSavingComplaint || (!complaintInitReady && !retry);
     submitComplaintButton.textContent = isSavingComplaint
         ? (retry ? "Saving Call Slip..." : "Saving...") : (retry ? "Retry Call Slip" : "Save Complaint");
@@ -867,6 +889,37 @@ function validateRequiredComplaintFields() {
     return true;
 }
 
+function validateComplaineeSelection() {
+    const selection = complaineeProgram.value;
+    complaineeProgram.setCustomValidity("");
+    complaineeExternalAffiliation.setCustomValidity("");
+
+    if (!selection) {
+        showMessage("Please select the complainee's program, or choose Others.", false);
+        complaineeProgram.focus();
+        return null;
+    }
+
+    if (selection === OTHERS_PROGRAM_VALUE) {
+        const affiliation = complaineeExternalAffiliation.value.trim();
+        if (!affiliation) {
+            complaineeExternalAffiliation.setCustomValidity("Please enter the person's organization or origin.");
+            showMessage("Please enter the complainee's organization or origin.", false);
+            complaineeExternalAffiliation.focus();
+            return null;
+        }
+        return { courseId: null, externalAffiliation: affiliation };
+    }
+
+    if (!complaintCourseIds.has(selection)) {
+        showMessage("Please select a complainee program from the loaded list, or choose Others.", false);
+        complaineeProgram.focus();
+        return null;
+    }
+
+    return { courseId: selection, externalAffiliation: null };
+}
+
 async function saveComplaint(event) {
     event.preventDefault();
     if (isSavingComplaint) return;
@@ -889,6 +942,8 @@ async function saveComplaint(event) {
     let incidentTimestamp = null;
     hideMessage();
     let selectedCourseId = null;
+    let selectedComplaineeCourseId = null;
+    let selectedComplaineeExternalAffiliation = null;
     let courseYearSnapshot = null;
     let selectedCategory = null;
     if (!retry) {
@@ -897,6 +952,11 @@ async function saveComplaint(event) {
             showMessage("Courses are unavailable. Reload before saving a new complaint.", false);
             return;
         }
+        const complaineeSelection = validateComplaineeSelection();
+        if (!complaineeSelection) return;
+        selectedComplaineeCourseId = complaineeSelection.courseId;
+        selectedComplaineeExternalAffiliation = complaineeSelection.externalAffiliation;
+
         selectedCourseId = complainantCourseId.value || null;
         if (selectedCourseId !== null && !complaintCourseIds.has(selectedCourseId)) {
             showMessage("Please select a course from the loaded list, or choose Unmapped / Not applicable.", false);
@@ -953,7 +1013,7 @@ async function saveComplaint(event) {
         if (!retry) {
     const result =
         await supabaseClient.rpc(
-            "create_complaint",
+            "create_complaint_v2",
             {
 
                 p_what_happened:
@@ -1029,7 +1089,13 @@ async function saveComplaint(event) {
                     currentProfile.full_name,
 
                 p_complainant_course_id:
-                    selectedCourseId
+                    selectedCourseId,
+
+                p_complainee_course_id:
+                    selectedComplaineeCourseId,
+
+                p_complainee_external_affiliation:
+                    selectedComplaineeExternalAffiliation
             }
         );
             if (result.error) {
@@ -1161,8 +1227,23 @@ async function loadComplaintCourses() {
     const blank = document.createElement("option");
     blank.value = "";
     blank.textContent = "Unmapped / Not applicable";
-    complainantCourseId.replaceChildren(blank, ...options);
+    complainantCourseId.replaceChildren(blank, ...options.map(option => option.cloneNode(true)));
     complainantCourseId.value = "";
+
+    const programPrompt = document.createElement("option");
+    programPrompt.value = "";
+    programPrompt.textContent = "Select a CSU program or choose Others";
+
+    const others = document.createElement("option");
+    others.value = OTHERS_PROGRAM_VALUE;
+    others.textContent = "Others (not affiliated with CSU)";
+
+    complaineeProgram.replaceChildren(
+        programPrompt,
+        ...options.map(option => option.cloneNode(true)),
+        others
+    );
+    complaineeProgram.value = "";
     complaintCoursesReady = true;
 }
 
@@ -1178,6 +1259,7 @@ async function initialize() {
         hideMessage();
     } catch (error) {
         if (!complaintCoursesReady) complainantCourseId.options[0].textContent = "Courses unavailable ? reload to retry";
+        if (!complaintCoursesReady) complaineeProgram.options[0].textContent = "Programs unavailable ? reload to retry";
         complaintInitReason = safeNetworkMessage(error, "Complaints are unavailable. Account information or courses could not be loaded. Reload to try again.");
         showMessage(complaintInitReason, false);
     } finally { updateComplaintFormState(); }
@@ -1187,4 +1269,16 @@ async function initialize() {
 for (const [field, label] of requiredComplaintFields()) {
     field.addEventListener("input", () => updateRequiredComplaintValidity(field, label));
 }
+
+complaineeProgram.addEventListener("change", () => {
+    complaineeProgram.setCustomValidity("");
+    updateComplaineeAffiliationField();
+});
+
+complaineeExternalAffiliation.addEventListener("input", () => {
+    if (complaineeExternalAffiliation.value.trim()) {
+        complaineeExternalAffiliation.setCustomValidity("");
+    }
+});
+
 initialize();

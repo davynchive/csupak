@@ -1,2 +1,6 @@
 node_modules/
 supabase-backup/
+/.csupak-test.local.json
+/supabase/.temp/
+/supabase/.branches/
+/supabase/**/.env*

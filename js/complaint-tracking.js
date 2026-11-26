@@ -2660,6 +2660,8 @@ const complaintReportOutput = document.getElementById("complaintReportOutput");
 
 let complaintReportMappings = new Map();
 
+let complaintReportComplaineeMappings = new Map();
+
 let complaintReportReady = false;
 
 let complaintReportLoadToken = 0;
@@ -2728,6 +2730,8 @@ function resetComplaintReport() {
 
     complaintReportMappings = new Map();
 
+    complaintReportComplaineeMappings = new Map();
+
     complaintReportGenerate.disabled = true;
 
     complaintReportPeriod.disabled = true;
@@ -2763,6 +2767,8 @@ function setComplaintReportUnavailable() {
     complaintReportReady = false;
 
     complaintReportMappings = new Map();
+
+    complaintReportComplaineeMappings = new Map();
 
     complaintReportGenerate.disabled = true;
 
@@ -2832,6 +2838,8 @@ async function loadComplaintReportSources() {
 
     const expectedIds = new Set();
 
+    const expectedRecords = new Map();
+
     try {
 
         for (const record of allComplaints) {
@@ -2842,9 +2850,23 @@ async function loadComplaintReportSources() {
 
             expectedIds.add(id);
 
+            expectedRecords.set(id, record);
+
             complaintDatePeriod(record.date_reported);
 
             if (record.complaint_category !== null && typeof record.complaint_category !== "string") throw new Error("Invalid category.");
+
+            if (!Object.prototype.hasOwnProperty.call(record, "complainee_course_id") ||
+                !Object.prototype.hasOwnProperty.call(record, "complainee_external_affiliation")) throw new Error("Complainee report fields are missing.");
+
+            const complaineeCourse = record.complainee_course_id === null ? null : reportId(record.complainee_course_id);
+
+            const externalAffiliation = record.complainee_external_affiliation;
+
+            if (externalAffiliation !== null && typeof externalAffiliation !== "string") throw new Error("Invalid complainee affiliation.");
+
+            if ((complaineeCourse !== null && externalAffiliation !== null) ||
+                (complaineeCourse === null && externalAffiliation !== null && !externalAffiliation.trim())) throw new Error("Invalid complainee source values.");
 
         }
 
@@ -2926,11 +2948,95 @@ async function loadComplaintReportSources() {
 
         }
 
+        const complaineeMappings = new Map();
+
+        const complaineeCollegeLabels = new Map();
+
+        let complaineeExpectedTotal = null;
+
+        let complaineeOffset = 0;
+
+        do {
+
+            if (!isCurrent()) return;
+
+            const result = await supabaseClient.rpc("get_complaint_report_sources_with_passkey_v2",
+
+                {entered_passkey: passkey}, {count:"exact"})
+
+                .order("complaint_id", {ascending:true}).range(complaineeOffset, complaineeOffset + COMPLAINT_BATCH_SIZE - 1);
+
+            if (!isCurrent()) return;
+
+            if (result.error) throw result.error;
+
+            if (!Array.isArray(result.data) || !Number.isSafeInteger(result.count) || result.count < 0 || result.data.length > COMPLAINT_BATCH_SIZE) throw new Error("Invalid complainee report batch.");
+
+            if (complaineeExpectedTotal === null) complaineeExpectedTotal = result.count;
+
+            if (result.count !== complaineeExpectedTotal || (!result.data.length && complaineeOffset < complaineeExpectedTotal)) throw new Error("Incomplete complainee report sources.");
+
+            for (const source of result.data) {
+
+                if (!source || typeof source !== "object" || Array.isArray(source)) throw new Error("Invalid complainee report source.");
+
+                const id = reportId(source.complaint_id);
+
+                if (complaineeMappings.has(id) || !expectedIds.has(id)) throw new Error("Complainee report ID mismatch.");
+
+                const course = source.complainee_course_id === null ? null : reportId(source.complainee_course_id);
+
+                const affiliation = source.complainee_external_affiliation;
+
+                if (affiliation !== null && (typeof affiliation !== "string" || !affiliation.trim())) throw new Error("Invalid external affiliation mapping.");
+
+                if (course !== null && affiliation !== null) throw new Error("Conflicting complainee report mapping.");
+
+                const record = expectedRecords.get(id);
+
+                const recordCourse = record.complainee_course_id === null ? null : reportId(record.complainee_course_id);
+
+                if (course !== recordCourse || affiliation !== record.complainee_external_affiliation) throw new Error("Complainee source changed.");
+
+                const college = source.college_id === null ? null : reportId(source.college_id);
+
+                if (college !== null && (course === null || typeof source.college_code !== "string" || !source.college_code.trim() ||
+
+                    typeof source.college_name !== "string" || !source.college_name.trim())) throw new Error("Invalid complainee college mapping.");
+
+                if (college === null && (source.college_code !== null || source.college_name !== null)) throw new Error("Invalid unresolved complainee mapping.");
+
+                complaineeMappings.set(id, {courseId:course, externalAffiliation:affiliation, collegeId:college, code:source.college_code, name:source.college_name});
+
+            }
+
+            complaineeOffset += result.data.length;
+
+        } while (complaineeOffset < complaineeExpectedTotal);
+
+        if (complaineeOffset !== complaineeExpectedTotal || complaineeMappings.size !== complaineeExpectedTotal || complaineeMappings.size !== expectedIds.size ||
+
+            Array.from(expectedIds).some(id => !complaineeMappings.has(id))) throw new Error("Complainee report source set mismatch.");
+
+        for (const mapping of complaineeMappings.values()) {
+
+            if (mapping.collegeId === null) continue;
+
+            const label = JSON.stringify([mapping.code, mapping.name]);
+
+            if (complaineeCollegeLabels.has(mapping.collegeId) && complaineeCollegeLabels.get(mapping.collegeId) !== label) throw new Error("Complainee college mapping changed.");
+
+            complaineeCollegeLabels.set(mapping.collegeId, label);
+
+        }
+
         if (!isCurrent()) return;
 
         populateComplaintReportPeriods();
 
         complaintReportMappings = mappings;
+
+        complaintReportComplaineeMappings = complaineeMappings;
 
         complaintReportSession = session;
 
@@ -2955,6 +3061,8 @@ function aggregateComplaintReport(period) {
     const statuses = new Map([["Pending",0],["On-going",0],["Resolved",0]]);
 
     const colleges = new Map();
+
+    const complaineeColleges = new Map();
 
     let total = 0, unknownStatuses = 0;
 
@@ -2990,6 +3098,44 @@ function aggregateComplaintReport(period) {
 
         college.categories.set(category, (college.categories.get(category) || 0) + 1);
 
+        const complaineeMapping = complaintReportComplaineeMappings.get(reportId(record.id));
+
+        if (!complaineeMapping) throw new Error("Missing complainee mapping.");
+
+        let complaineeKey, complaineeGroup;
+
+        if (complaineeMapping.courseId !== null) {
+
+            if (complaineeMapping.collegeId === null) {
+                complaineeKey = "unmapped-course";
+                complaineeGroup = {id:complaineeKey,kind:"unmapped",order:3,code:"UNMAPPED",name:"Unmapped College"};
+            } else {
+                complaineeKey = "college:" + complaineeMapping.collegeId;
+                complaineeGroup = {id:complaineeMapping.collegeId,kind:"college",order:0,code:complaineeMapping.code,name:complaineeMapping.name};
+            }
+
+        } else if (complaineeMapping.externalAffiliation !== null) {
+
+            complaineeKey = "external";
+            complaineeGroup = {id:complaineeKey,kind:"external",order:1,code:"EXTERNAL",name:"Others / External"};
+
+        } else {
+
+            complaineeKey = "not-specified";
+            complaineeGroup = {id:complaineeKey,kind:"not-specified",order:2,code:"N/S",name:"Not specified"};
+
+        }
+
+        if (!complaineeColleges.has(complaineeKey)) complaineeColleges.set(complaineeKey,
+
+            {...complaineeGroup,total:0,categories:new Map()});
+
+        const complaineeCollege = complaineeColleges.get(complaineeKey);
+
+        complaineeCollege.total++;
+
+        complaineeCollege.categories.set(category,(complaineeCollege.categories.get(category)||0)+1);
+
     }
 
     const orderedCategories = [...COMPLAINT_REPORT_CATEGORIES, "Uncategorized", "Unrecognized Category"]
@@ -2998,9 +3144,13 @@ function aggregateComplaintReport(period) {
 
     const orderedColleges = Array.from(colleges.values()).sort((a,b) => a.code.localeCompare(b.code) || a.name.localeCompare(b.name));
 
+    const orderedComplaineeColleges = Array.from(complaineeColleges.values()).sort((a,b) => a.order - b.order || a.code.localeCompare(b.code) || a.name.localeCompare(b.name));
+
     if (Array.from(categories.values()).reduce((a,b)=>a+b,0) !== total || orderedColleges.reduce((sum,c)=>sum+c.total,0) !== total) throw new Error("Report totals mismatch.");
 
-    return {total,statuses,unknownStatuses,categories:orderedCategories.map(name=>[name,categories.get(name)||0]),colleges:orderedColleges};
+    if (orderedComplaineeColleges.reduce((sum,c)=>sum+c.total,0) !== total) throw new Error("Complainee report totals mismatch.");
+
+    return {total,statuses,unknownStatuses,categories:orderedCategories.map(name=>[name,categories.get(name)||0]),colleges:orderedColleges,complaineeColleges:orderedComplaineeColleges};
 
 }
 
@@ -3036,9 +3186,13 @@ function complaintReportMarkup(data, period) {
 
     const unmapped = data.colleges.find(college => college.id === null);
 
+    const complaineeUnmapped = data.complaineeColleges.find(college => college.kind === "unmapped");
+
     if (uncategorized) notes.push(uncategorized + (uncategorized === 1 ? " complaint is uncategorized" : " complaints are uncategorized"));
 
     if (unmapped) notes.push(unmapped.total + (unmapped.total === 1 ? " complaint has no mapped college" : " complaints have no mapped college"));
+
+    if (complaineeUnmapped) notes.push(complaineeUnmapped.total + (complaineeUnmapped.total === 1 ? " complaint has a complainee program without a mapped college" : " complaints have complainee programs without a mapped college"));
 
     if (unrecognized) notes.push(unrecognized + (unrecognized === 1 ? " complaint has an unrecognized category" : " complaints have unrecognized categories"));
 
@@ -3058,15 +3212,33 @@ function complaintReportMarkup(data, period) {
 
         complaintReportTable(["Category","Total Complaints"],data.categories)+'</section>' +
 
-        '<section class="report-section"><h2>Complaint Totals by College</h2>' +
+        '<section class="report-section"><h2>Complaints by Complainant\'s College</h2>' +
+
+        '<p class="report-context">College of the person who filed the complaint.</p>' +
 
         complaintReportTable(["College Code","College","Total Complaints"],data.colleges.map(college=>[college.code,college.name,college.total]))+'</section>' +
 
-        '<section class="report-section report-cross-tab"><h2>Complaint Category Breakdown by College</h2>' +
+        '<section class="report-section report-cross-tab"><h2>Complaint Category Breakdown by Complainant\'s College</h2>' +
+
+        '<p class="report-context">Categories grouped by the college of the person who filed the complaint.</p>' +
 
         complaintReportTable(["College",...data.categories.map(([name])=>name),"Total"],
 
-            data.colleges.map(college=>[college.code+' / '+college.name,...data.categories.map(([name])=>college.categories.get(name)||0),college.total]))+'</section>';
+            data.colleges.map(college=>[college.code+' / '+college.name,...data.categories.map(([name])=>college.categories.get(name)||0),college.total]))+'</section>' +
+
+        '<section class="report-section"><h2>Complaints by Complainee\'s College</h2>' +
+
+        '<p class="report-context">College of the person being reported. External and unspecified complainees are listed separately.</p>' +
+
+        complaintReportTable(["College Code / Group","College or Group","Total Complaints"],data.complaineeColleges.map(college=>[college.code,college.name,college.total]))+'</section>' +
+
+        '<section class="report-section report-cross-tab"><h2>Complaint Category Breakdown by Complainee\'s College</h2>' +
+
+        '<p class="report-context">Categories grouped by the college of the person being reported.</p>' +
+
+        complaintReportTable(["College or Group",...data.categories.map(([name])=>name),"Total"],
+
+            data.complaineeColleges.map(college=>[college.code+' / '+college.name,...data.categories.map(([name])=>college.categories.get(name)||0),college.total]))+'</section>';
 
 }
 
@@ -3130,6 +3302,10 @@ function complaintDashboardMarkup(data, period) {
 
         '<div class="complaint-college-card"><strong>'+college.total+'</strong><p class="college-code">'+esc(college.code)+'</p><p class="college-name">'+esc(college.name)+'</p></div>').join('');
 
+    const complaineeCollegeCards = data.complaineeColleges.map(college =>
+
+        '<div class="complaint-college-card"><strong>'+college.total+'</strong><p class="college-code">'+esc(college.code)+'</p><p class="college-name">'+esc(college.name)+'</p></div>').join('');
+
     const notes = [];
 
     const uncategorized = data.categories.find(([name])=>name==='Uncategorized')?.[1] || 0;
@@ -3138,9 +3314,13 @@ function complaintDashboardMarkup(data, period) {
 
     const unmapped = data.colleges.find(college=>college.id === null)?.total || 0;
 
+    const complaineeUnmapped = data.complaineeColleges.find(college=>college.kind === "unmapped")?.total || 0;
+
     if (uncategorized) notes.push(uncategorized+' '+(uncategorized===1?'complaint is':'complaints are')+' uncategorized');
 
     if (unmapped) notes.push(unmapped+' '+(unmapped===1?'has':'have')+' no mapped college');
+
+    if (complaineeUnmapped) notes.push(complaineeUnmapped+' '+(complaineeUnmapped===1?'complaint has':'complaints have')+' a complainee program without a mapped college');
 
     if (unrecognized) notes.push(unrecognized+' '+(unrecognized===1?'has an':'have')+' unrecognized '+(unrecognized===1?'category':'categories'));
 
@@ -3154,9 +3334,13 @@ function complaintDashboardMarkup(data, period) {
 
         '<h4 class="complaint-metric-heading">Complaints by Category</h4><div class="complaint-category-grid">'+categoryCards+'</div>'+
 
-        '<div class="complaint-college-heading"><h4 class="complaint-metric-heading">Complaints by College</h4><button id="viewComplaintCollegeBreakdown" type="button" class="rounded-lg border border-gray-300 px-3 py-2 text-sm font-semibold text-[#006B21]">View College Breakdown</button></div>'+
+        '<section class="complaint-college-section"><div class="complaint-college-heading"><div><h4 class="complaint-metric-heading">Complaints by Complainant\'s College</h4><p class="complaint-college-description">College of the person who filed the complaint.</p></div><button id="viewComplaintCollegeBreakdown" type="button" class="rounded-lg border border-gray-300 px-3 py-2 text-sm font-semibold text-[#006B21]">View Breakdown</button></div>'+
 
-        '<div class="complaint-college-grid">'+(collegeCards || '<p class="text-sm text-green-100">No complaints for this month.</p>')+'</div>';
+        '<div class="complaint-college-grid">'+(collegeCards || '<p class="text-sm text-green-100">No complaints for this month.</p>')+'</div></section>'+
+
+        '<section class="complaint-college-section"><div class="complaint-college-heading"><div><h4 class="complaint-metric-heading">Complaints by Complainee\'s College</h4><p class="complaint-college-description">College of the person being reported.</p></div><button id="viewComplaintComplaineeCollegeBreakdown" type="button" class="rounded-lg border border-gray-300 px-3 py-2 text-sm font-semibold text-[#006B21]">View Breakdown</button></div>'+
+
+        '<div class="complaint-college-grid">'+(complaineeCollegeCards || '<p class="text-sm text-green-100">No complaints for this month.</p>')+'</div></section>';
 
 }
 
@@ -3170,13 +3354,20 @@ function closeComplaintCollegeBreakdown() {
 
 }
 
-function renderComplaintCollegeBreakdown(data, period) {
+function renderComplaintCollegeBreakdown(data, period, basis = "complainant") {
 
     document.getElementById("complaintCollegeBreakdownPeriod").textContent = complaintPeriodLabel(period);
 
+    document.getElementById("complaintCollegeBreakdownTitle").textContent = basis === "complainee"
+        ? "Category Breakdown by Complainee's College"
+        : "Category Breakdown by Complainant's College";
+
+    document.getElementById("complaintCollegeBreakdownContent").setAttribute("aria-label",
+        basis === "complainee" ? "Category breakdown by complainee college or group" : "Category breakdown by complainant college");
+
     document.getElementById("complaintCollegeBreakdownContent").innerHTML = complaintReportTable(
 
-        ["College",...data.categories.map(([name])=>name),"Total"],
+        ["College or Group",...data.categories.map(([name])=>name),"Total"],
 
         data.colleges.map(college=>[college.code+' / '+college.name,...data.categories.map(([name])=>college.categories.get(name)||0),college.total]));
 
@@ -3199,6 +3390,16 @@ function renderComplaintReport() {
         renderComplaintCollegeBreakdown(data, complaintReportPeriod.value);
 
         document.getElementById("viewComplaintCollegeBreakdown").addEventListener("click", () => {
+
+            renderComplaintCollegeBreakdown(data, complaintReportPeriod.value, "complainant");
+
+            document.getElementById("complaintCollegeBreakdownModal").showModal();
+
+        });
+
+        document.getElementById("viewComplaintComplaineeCollegeBreakdown").addEventListener("click", () => {
+
+            renderComplaintCollegeBreakdown({...data, colleges:data.complaineeColleges}, complaintReportPeriod.value, "complainee");
 
             document.getElementById("complaintCollegeBreakdownModal").showModal();
 
@@ -3566,4 +3767,3 @@ complaintNotesModal.addEventListener("click", event => {
 
 initialize();
 
- 
