@@ -19,7 +19,10 @@ CREATE TABLE auth.users (
     id uuid PRIMARY KEY, email text, is_anonymous boolean NOT NULL DEFAULT false,
     is_sso_user boolean NOT NULL DEFAULT false, deleted_at timestamptz,
     role text NOT NULL DEFAULT 'authenticated', email_confirmed_at timestamptz,
-    raw_app_meta_data jsonb
+    raw_app_meta_data jsonb, email_change text
+);
+CREATE TABLE auth.identities (
+    user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE, email text
 );
 CREATE TABLE auth.sessions (
     id uuid PRIMARY KEY, user_id uuid NOT NULL REFERENCES auth.users(id),
@@ -76,6 +79,7 @@ def main():
         "202611250008_account_setup_state.sql",
         "202611250009_admin_password_recovery.sql",
         "202611260001_admin_user_management_views.sql",
+        "202611260002_reuse_provisioned_email.sql",
     ):
         phases.append(source(MIGRATIONS / file))
     phases.append(source(ROOT / "database/docs/verify_provisioning_completion.sql"))
@@ -85,6 +89,7 @@ def main():
     phases.append(source(ROOT / "database/tests/provisioning_completion.sql"))
     phases.append(source(ROOT / "database/tests/admin_password_recovery.sql"))
     phases.append(source(ROOT / "database/tests/admin_user_management_views.sql"))
+    phases.append(source(ROOT / "database/tests/reuse_provisioned_email.sql"))
     # postgres --single -j uses a blank line as a statement terminator.
     sql = "".join(re.sub(r"\n(?:[ \t]*\n)+", "\n", phase.strip()) + "\n\n" for phase in phases)
 
@@ -101,10 +106,10 @@ def main():
                                 input=sql, capture_output=True, text=True, timeout=60)
         log = result.stdout + result.stderr
         markers = ('result = "PROVISIONING_TESTS_PASSED"', 'result = "PASSWORD_RECOVERY_TESTS_PASSED"',
-                   'result = "MANAGEMENT_VIEWS_TESTS_PASSED"')
+                   'result = "MANAGEMENT_VIEWS_TESTS_PASSED"', 'result = "EMAIL_REUSE_TESTS_PASSED"')
         if result.returncode or re.search(r"\b(ERROR|FATAL|PANIC):", log) or any(marker not in log for marker in markers):
             raise SystemExit(result.stderr or log)
-        print("PASS provisioning, password recovery and management views, catalog verifiers, and local SQL assertions")
+        print("PASS provisioning, password recovery, management views, email reuse and catalog checks")
 
 
 if __name__ == "__main__":
