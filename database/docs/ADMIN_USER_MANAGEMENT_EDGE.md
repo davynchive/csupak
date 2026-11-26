@@ -330,6 +330,26 @@ python scripts/test-provisioning-db.py
 
 The suite passed on PostgreSQL **18.3**. It exercises provisioning, setup, and activation behavior, plus recovery eligibility, current email resolution, cooldown, replay, conflicts across all administrative actions, and state preservation. The fixtures supply synthetic claims to the real database RPCs. Hosted verification must still cover the gateway and managed Auth rows.
 
+## Production release and Phase 5 closeout
+
+**Phase 5 is complete.** On 2026-11-26, Vercel successfully deployed production merge commit `8074867fac982d34e7af159eb1bdf4d824f8ad3d` from `main`. The dashboard, Settings, account setup, and password reset pages returned HTTP 200 on the live site. All 11 production migrations passed verification, and the production `admin-user-management` Edge Function was active with JWT verification enabled. [Production site](https://csupak.vercel.app/) · [Release commit](https://github.com/davynchive/csupak/commit/8074867fac982d34e7af159eb1bdf4d824f8ad3d)
+
+The project maintainer confirmed the following production browser checks passed:
+
+- Existing account sign-in, dashboard, and role-based access.
+- Email change and successful sign-in with the confirmed new address. Secure Email Change required confirmation at both the current and new addresses. Completing both confirmations resolved the earlier issue.
+- Account creation, setup email delivery, password setup, and administrator activation.
+- Password recovery, name editing, role changes, and account deactivation.
+- Disposable account cleanup and preservation of the original production accounts.
+
+The previous Vercel production deployment at `747338ce020143dfffc90e87dc987e2377a7f209` is the frontend rollback reference. [Previous deployment](https://csupak-kdsuqyu5h-davynchive.vercel.app/)
+
+## Student ID lookup release checkpoint
+
+The project maintainer confirmed manual verification of Student ID lookup and auto-fill in the Record Violation form on CSUPAK-TEST and approved the feature for production. The change uses the existing student records and permissions and requires no database migration or Auth configuration change.
+
+The rollback reference for this frontend release is production merge commit `8074867fac982d34e7af159eb1bdf4d824f8ad3d`. [Previous release commit](https://github.com/davynchive/csupak/commit/8074867fac982d34e7af159eb1bdf4d824f8ad3d)
+
 ## CSUPAK-TEST deployment checkpoint
 
 On 2026-11-26, all six migrations from `202611250004` through `202611250009` passed catalog verification in CSUPAK-TEST. The `admin-user-management` Edge Function deployed as version 1 and reported `ACTIVE` with `verify_jwt = true`.

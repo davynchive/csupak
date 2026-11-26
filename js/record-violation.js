@@ -390,7 +390,7 @@ async function loadCourses() {
         await supabaseClient
             .from("courses")
             .select(
-                "id, course_code, course_name"
+                "id, course_code, course_name, colleges(college_name)"
             )
             .order(
                 "course_code",
@@ -737,25 +737,129 @@ function hideMessage() {
    FIND OR CREATE STUDENT
 ===================================================== */
 
+function lookupStudent(id) {
+    return supabaseClient.from("students")
+        .select("id, student_id, student_name, course_id, year_level, college")
+        .eq("student_id", id)
+        .maybeSingle();
+}
+
+const studentLookupDialog = document.getElementById("studentLookupDialog");
+const studentLookupStatus = document.getElementById("studentLookupStatus");
+const studentLookupProfileNote = document.getElementById("studentLookupProfileNote");
+const handledStudentIds = new Map();
+const filledStudentFields = new Map();
+let studentLookupTimer, studentNoticeTimer, studentLookupOffer, studentLookupFocus;
+let studentLookupVersion = 0;
+let pendingLookupVersion = -1;
+let lookupInputId = studentId.value.trim();
+
+function invalidateStudentLookup() {
+    clearTimeout(studentLookupTimer);
+    studentLookupVersion++;
+}
+
+function syncStudentLookupId() {
+    const id = studentId.value.trim();
+    if (id === lookupInputId) return id;
+    lookupInputId = id;
+    invalidateStudentLookup();
+    clearTimeout(studentNoticeTimer);
+    studentLookupStatus.textContent = "";
+    studentLookupProfileNote.hidden = handledStudentIds.get(id) !== true;
+    for (const [field, value] of filledStudentFields) {
+        if (field.value === value) field.value = "";
+    }
+    filledStudentFields.clear();
+    if (studentLookupDialog.open) studentLookupDialog.close();
+    return id;
+}
+
+function scheduleStudentLookup() {
+    const id = syncStudentLookupId();
+    clearTimeout(studentLookupTimer);
+    if (!recordInitReady || isSaving || savedViolationId !== null || !id || /[\u0000-\u001f\u007f]/.test(id) ||
+        !studentId.validity.valid || handledStudentIds.has(id) || pendingLookupVersion === studentLookupVersion) return;
+    const version = studentLookupVersion;
+    studentLookupTimer = setTimeout(() => findStudentForAutofill(id, version), 250);
+}
+
+async function findStudentForAutofill(id, version) {
+    const isCurrent = () => version === studentLookupVersion && !isSaving && savedViolationId === null && studentId.value.trim() === id;
+    if (!isCurrent()) return;
+    pendingLookupVersion = version;
+    try {
+        const { data, error } = await lookupStudent(id);
+        if (!isCurrent()) return;
+        if (error) throw error;
+        handledStudentIds.set(id, Boolean(data));
+        studentLookupStatus.textContent = "";
+        if (!data) return;
+        studentLookupProfileNote.hidden = false;
+
+        const course = courses.find(item => String(item.id) === String(data.course_id));
+        const year = Array.from(yearLevel.options).find(option => option.value && option.value === String(data.year_level));
+        const updates = new Map([[studentName, data.student_name], [courseId, course ? String(course.id) : ""], [yearLevel, year?.value]]);
+        for (const [field, value] of updates) if (!value?.trim()) updates.delete(field);
+        const preview = {
+            lookupPreviewId: data.student_id,
+            lookupPreviewName: data.student_name,
+            lookupPreviewCollege: course?.colleges?.college_name || data.college,
+            lookupPreviewCourse: course ? `${course.course_code} - ${course.course_name}` : "",
+            lookupPreviewYear: year?.textContent.trim()
+        };
+        for (const [key, value] of Object.entries(preview)) {
+            document.getElementById(key).textContent = value || "Not available";
+        }
+        document.getElementById("studentLookupConflict").hidden = !Array.from(updates).some(([field, value]) =>
+            field.value.trim() && field.value.trim() !== value.trim());
+        studentLookupOffer = { id, updates };
+        studentLookupFocus = document.activeElement;
+        studentLookupDialog.showModal();
+    } catch {
+        if (isCurrent()) studentLookupStatus.textContent = "Student lookup is unavailable. You can continue entering details manually.";
+    } finally {
+        if (pendingLookupVersion === version) pendingLookupVersion = -1;
+    }
+}
+
+studentId.addEventListener("input", syncStudentLookupId);
+studentId.addEventListener("blur", scheduleStudentLookup);
+studentId.addEventListener("keydown", event => {
+    if (event.key !== "Enter" || event.isComposing) return;
+    event.preventDefault();
+    studentName.focus();
+    scheduleStudentLookup();
+});
+for (const field of [studentName, courseId, yearLevel]) {
+    field.addEventListener("input", () => filledStudentFields.delete(field));
+    field.addEventListener("change", () => filledStudentFields.delete(field));
+}
+document.getElementById("enterStudentManually").addEventListener("click", () => studentLookupDialog.close());
+document.getElementById("useExistingStudent").addEventListener("click", () => {
+    const offer = studentLookupOffer;
+    if (offer?.id === studentId.value.trim()) {
+        for (const [field, value] of offer.updates) {
+            if (field.value !== value) filledStudentFields.set(field, value);
+            field.value = value;
+        }
+        studentLookupFocus = studentName;
+        studentLookupStatus.textContent = "Student details successfully filled.";
+        clearTimeout(studentNoticeTimer);
+        studentNoticeTimer = setTimeout(() => { studentLookupStatus.textContent = ""; }, 4500);
+    }
+    studentLookupDialog.close();
+});
+studentLookupDialog.addEventListener("close", () => {
+    studentLookupOffer = null;
+    const focus = studentLookupFocus;
+    studentLookupFocus = null;
+    if (!isSaving) (focus?.isConnected && focus !== document.body && !focus.disabled ? focus : studentName).focus();
+});
+
 async function getOrCreateStudent() {
-
-    const studentIdValue =
-        studentId
-            .value
-            .trim();
-
-
-    const existingResult =
-        await supabaseClient
-            .from("students")
-            .select(
-                "id, student_id, student_name, course_id, year_level"
-            )
-            .eq(
-                "student_id",
-                studentIdValue
-            )
-            .maybeSingle();
+    const studentIdValue = studentId.value.trim();
+    const existingResult = await lookupStudent(studentIdValue);
 
 
     if (existingResult.error) {
@@ -826,6 +930,14 @@ async function getOrCreateStudent() {
 
 
     if (insertResult.error) {
+
+        if (insertResult.error.code === "23505") {
+            // A concurrent recording may have registered the same Student ID.
+            const concurrentResult = await lookupStudent(studentIdValue);
+            if (!concurrentResult.error && concurrentResult.data) {
+                return { success: true, studentId: concurrentResult.data.id };
+            }
+        }
 
         console.error(
             "Student insert error:",
@@ -1206,6 +1318,7 @@ async function saveViolation(
     }
 
 
+    invalidateStudentLookup();
     isSaving = true;
     updateFormState();
     try {
@@ -1271,7 +1384,14 @@ function updateFormState() {
 
 function resetViolationForm() {
     savedViolationId = null;
+    invalidateStudentLookup();
+    clearTimeout(studentNoticeTimer);
+    handledStudentIds.clear();
+    filledStudentFields.clear();
+    studentLookupProfileNote.hidden = true;
+    studentLookupStatus.textContent = "";
     violationForm.reset();
+    lookupInputId = studentId.value.trim();
     violationType.value = "";
     specifyViolation.value = "";
     updateSpecifyViolation();
@@ -1398,6 +1518,7 @@ async function initialize() {
         recordInitReady = true;
         recordInitReason = "";
         hideMessage();
+        if (document.activeElement !== studentId) scheduleStudentLookup();
     } catch (error) {
         recordInitReason = safeNetworkMessage(error, "Recording is unavailable. Account, active semester, or courses could not be loaded. Reload to try again.");
         showMessage(recordInitReason, false);
