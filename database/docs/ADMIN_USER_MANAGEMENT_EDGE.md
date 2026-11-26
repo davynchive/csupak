@@ -344,6 +344,12 @@ The project maintainer confirmed the following production browser checks passed:
 
 The previous Vercel production deployment at `747338ce020143dfffc90e87dc987e2377a7f209` is the frontend rollback reference. [Previous deployment](https://csupak-kdsuqyu5h-davynchive.vercel.app/)
 
+## Student ID lookup release checkpoint
+
+The project maintainer confirmed manual verification of Student ID lookup and auto-fill in the Record Violation form on CSUPAK-TEST and approved the feature for production. The change uses the existing student records and permissions and requires no database migration or Auth configuration change.
+
+The rollback reference for this frontend release is production merge commit `8074867fac982d34e7af159eb1bdf4d824f8ad3d`. [Previous release commit](https://github.com/davynchive/csupak/commit/8074867fac982d34e7af159eb1bdf4d824f8ad3d)
+
 ## CSUPAK-TEST deployment checkpoint
 
 On 2026-11-26, all six migrations from `202611250004` through `202611250009` passed catalog verification in CSUPAK-TEST. The `admin-user-management` Edge Function deployed as version 1 and reported `ACTIVE` with `verify_jwt = true`.

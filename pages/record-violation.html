@@ -15,6 +15,7 @@
         rel="stylesheet"
         href="../src/output.css"
     >
+    <link rel="stylesheet" href="../css/user-management.css">
 </head>
 
 
@@ -245,10 +246,13 @@
                                 <input
                                     id="studentId"
                                     type="text"
+                                    aria-describedby="studentLookupStatus studentLookupProfileNote"
                                     required
                                     placeholder="Enter student ID"
                                     class="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm outline-none transition focus:border-[#006B21] focus:ring-2 focus:ring-green-100"
                                 >
+                                <p id="studentLookupStatus" role="status" class="mt-1 text-sm text-gray-600"></p>
+                                <p id="studentLookupProfileNote" class="mt-1 text-sm text-gray-600" hidden>When saved, this violation will use the registered student profile. Edits here do not update that profile.</p>
 
                             </div>
 
@@ -644,6 +648,31 @@
         </div>
 
     </main>
+
+    <dialog id="studentLookupDialog" aria-labelledby="studentLookupTitle" aria-describedby="studentLookupDescription studentLookupNote studentLookupConflict" class="student-lookup-dialog m-auto max-h-[90dvh] w-[calc(100%-2rem)] max-w-md overflow-y-auto rounded-2xl border p-5 shadow-xl backdrop:bg-black/40 sm:p-6">
+        <div class="mb-4 flex items-center gap-3">
+            <span class="student-lookup-icon" aria-hidden="true">
+                <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M6 16a3 3 0 0 1 6 0m2-6h4m-4 4h4"/>
+                </svg>
+            </span>
+            <h3 id="studentLookupTitle" class="text-lg font-bold">Existing Student Found</h3>
+        </div>
+        <p id="studentLookupDescription" class="text-sm">This Student ID is already registered in the system. Would you like to use the existing student details?</p>
+        <dl class="student-lookup-preview text-sm">
+            <dt>Student ID</dt><dd id="lookupPreviewId"></dd>
+            <dt>Student name</dt><dd id="lookupPreviewName"></dd>
+            <dt>College</dt><dd id="lookupPreviewCollege"></dd>
+            <dt>Course</dt><dd id="lookupPreviewCourse"></dd>
+            <dt>Year level</dt><dd id="lookupPreviewYear"></dd>
+        </dl>
+        <p id="studentLookupNote" class="um-muted">You can still edit the details after auto-filling.</p>
+        <p id="studentLookupConflict" class="um-muted mt-2" hidden>Using existing details will replace some student details you already entered.</p>
+        <div class="um-actions student-lookup-actions">
+            <button id="enterStudentManually" type="button" class="um-button" autofocus>Enter Manually</button>
+            <button id="useExistingStudent" type="button" class="um-button um-primary">Use Existing Details</button>
+        </div>
+    </dialog>
 
 
     <script

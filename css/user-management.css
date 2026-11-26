@@ -1,4 +1,4 @@
-.user-management-dialog {
+:is(.user-management-dialog, .student-lookup-dialog) {
     --um-ink: var(--color-gray-900);
     --um-muted: var(--color-gray-600);
     --um-edge: var(--color-gray-300);
@@ -13,7 +13,7 @@
 }
 
 /* Follow the document's explicit theme. Settings defaults to light. */
-:root:is([data-theme="dark"], .dark:not([data-theme])) .user-management-dialog {
+:root:is([data-theme="dark"], .dark:not([data-theme])) :is(.user-management-dialog, .student-lookup-dialog) {
     color-scheme: dark;
     --um-ink: var(--color-gray-100);
     --um-muted: var(--color-gray-300);
@@ -24,8 +24,8 @@
 }
 
 .user-management-dialog [hidden] { display: none; }
-.user-management-dialog :focus-visible { outline: 2px solid var(--um-accent); outline-offset: 2px; }
-.user-management-dialog h3 { color: var(--um-accent); }
+:is(.user-management-dialog, .student-lookup-dialog) :focus-visible { outline: 2px solid var(--um-accent); outline-offset: 2px; }
+:is(.user-management-dialog, .student-lookup-dialog) h3 { color: var(--um-accent); }
 .um-muted { color: var(--um-muted); font-size: .875rem; }
 .um-form { margin-top: 1rem; }
 .um-filters { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 10rem), 1fr)); gap: .75rem; align-items: end; }
@@ -82,4 +82,34 @@
     .um-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .um-row > :first-child { grid-column: 1 / -1; }
     .um-row .um-button { justify-self: start; }
+}
+
+.student-lookup-icon {
+    display: grid;
+    place-items: center;
+    flex: 0 0 2.5rem;
+    height: 2.5rem;
+    border-radius: .65rem;
+    background: var(--um-tint);
+    color: var(--um-accent);
+}
+.student-lookup-preview {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: .4rem .8rem;
+    margin: .9rem 0;
+    padding: .75rem;
+    border: 1px solid var(--um-edge);
+    border-radius: .65rem;
+    background: var(--um-tint);
+}
+.student-lookup-preview dt { color: var(--um-muted); }
+.student-lookup-preview dd { overflow-wrap: anywhere; font-weight: 600; }
+.student-lookup-actions { justify-content: flex-end; }
+@media (prefers-reduced-motion: no-preference) {
+    .student-lookup-dialog[open] { animation: student-lookup-enter 160ms ease-out both; }
+    @keyframes student-lookup-enter {
+        from { opacity: 0; transform: translateY(.35rem) scale(.985); }
+        to { opacity: 1; transform: none; }
+    }
 }
